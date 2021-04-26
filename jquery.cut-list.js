@@ -29,6 +29,7 @@
         
     return this.each(function() {
       var $this = $(this),
+          $clone = $(this).clone(),
           limit,
           position,
           areaWidth,
@@ -197,10 +198,7 @@
       }
 
       $.fn.cutList.destroy = function() {
-        $.when(backToStartingPlace($this)).done(function() {
-          $this.find('.cut-list__dropdown ~ .cut-list__elem').remove()
-          $this.find('.cut-list__dropdown').remove()
-        });
+        $this.html($clone.html())
         $(window).off('resize', resizeHandle);
       }
       
