@@ -184,6 +184,10 @@
         
         moreBlock.css("visibility", "visible");
       }
+      
+      $.fn.cutList.reset = function () {
+        reset($this);
+      };
 
       $.fn.cutList.destroy = function() {
         $.when(backToStartingPlace($this)).done(function() {
