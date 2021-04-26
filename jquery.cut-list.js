@@ -38,6 +38,11 @@
 
       setup($this);
 
+      function resizeHandle () {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function(){reset($this)}, options.risezeDelay);
+      }
+
       function setup(obj) {
         if (!obj.find(".cut-list__dropdown").length) {
           obj.append('<div style="display:none" class="cut-list__elem cut-list__dropdown"></div>')
@@ -90,6 +95,8 @@
             $(".cut-list__dropdown.is-show").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
           });
         }
+
+        $(window).on('resize', resizeHandle);
       }
       
       function reset(obj) {
@@ -184,22 +191,19 @@
         
         moreBlock.css("visibility", "visible");
       }
-      
-      $.fn.cutList.reset = function () {
-        reset($this);
-      };
+
+      $.fn.cutList.setup = function() {
+        setup($this)
+      }
 
       $.fn.cutList.destroy = function() {
         $.when(backToStartingPlace($this)).done(function() {
           $this.find('.cut-list__dropdown ~ .cut-list__elem').remove()
           $this.find('.cut-list__dropdown').remove()
         });
+        $(window).off('resize', resizeHandle);
       }
       
-      $(window).resize(function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function(){reset($this)}, options.risezeDelay);
-      });
     });
   };
 })($);
