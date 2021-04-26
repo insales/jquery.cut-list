@@ -185,6 +185,13 @@
         moreBlock.css("visibility", "visible");
       }
 
+      $.fn.cutList.destroy = function() {
+        $.when(backToStartingPlace($this)).done(function() {
+          $this.find('.cut-list__dropdown ~ .cut-list__elem').remove()
+          $this.find('.cut-list__dropdown').remove()
+        });
+      }
+      
       $(window).resize(function() {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(function(){reset($this)}, options.risezeDelay);
