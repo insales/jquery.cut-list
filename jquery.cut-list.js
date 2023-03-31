@@ -1,9 +1,11 @@
-(function($) {
+(function($, window, undefined) {
   $.fn.cutList = function() {
     var defaults = {
       moreBtnTitle: 'Еще',
       showMoreOnHover: false,
       alwaysVisibleElem: undefined,
+      onOpen: function() {},
+      onClose: function() {},
       risezeDelay: 50
     }
     
@@ -73,9 +75,11 @@
           function(){
             $(this).parents(".cut-list__dropdown").addClass("is-show");
             showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"));
+            options.onOpen(obj)
           },
           function(){
             $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+            options.onClose(obj)
           });
         }
         else {
@@ -87,6 +91,7 @@
               $(this).parents(".cut-list__dropdown").addClass("is-show");
               showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"));
             }
+            options.onOpen(obj)
           });
           
           $(document).on("click", function(event) {
@@ -94,6 +99,7 @@
               return;
             
             $(".cut-list__dropdown.is-show").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+            options.onClose(obj)
           });
         }
 
@@ -204,4 +210,4 @@
       
     });
   };
-})($);
+})(jQuery, window);
