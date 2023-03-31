@@ -1,0 +1,23 @@
+{
+  "name": "jquery.cut-list",
+  "version": "1.0.0",
+  "description": "",
+  "main": "jquery.cut-list.js",
+  "scripts": {
+    "min": "uglifyjs jquery.cut-list.js -m -o jquery.cut-list.min.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/insales/jquery.cut-list.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/insales/jquery.cut-list/issues"
+  },
+  "homepage": "https://github.com/insales/jquery.cut-list#readme",
+  "type": "module",
+  "devDependencies": {
+    "uglify-js": "^3.17.4"
+  }
+}
