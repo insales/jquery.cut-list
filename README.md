@@ -73,3 +73,8 @@ $(".cut-list2").cutList({
   <li>Item 10</li>
 </ul>
 ``` 
+
+Минификация
+--------
+
+`npm run min`
