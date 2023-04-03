@@ -4,6 +4,7 @@
       moreBtnTitle: 'Еще',
       showMoreOnHover: false,
       alwaysVisibleElem: undefined,
+      onBeforeCalc: function() {},
       onBeforeOpen: function() {},
       onOpen: function() {},
       onBeforeClose: function() {},
@@ -191,6 +192,7 @@
         var document_height = $(document).outerHeight(true);
 
         moreBlock.css("visibility", "hidden").show();
+        options.onBeforeCalc(obj);
 
         if ((moreBlock.offset().top + moreBlock.innerHeight()) > document_height)
           moreBlock.addClass("is-top");
