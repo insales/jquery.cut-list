@@ -17,6 +17,8 @@
     constructor(element, options) {
       this.element = $(element);
       this.options = extend(defaults, options);
+      this.resizeTimeout = null;
+      this.initState = this.element.clone(true);
       this.init();
     }
 
@@ -32,7 +34,11 @@
         if ($(event.target).closest(".cut-list__dropdown").length) return;
 
         options.onBeforeClose($this);
-        $(".cut-list__dropdown.is-show").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+        $(".cut-list__dropdown.is-show")
+          .removeClass("is-show")
+          .find(".cut-list__more")
+          .hide()
+          .removeClass("is-top is-left");
         options.onClose($this);
       });
     }
@@ -64,18 +70,18 @@
       if (options.showMoreOnHover) {
         obj.find(".cut-list__drop").hover(
           () => {
-            $(obj).find(".cut-list__dropdown").addClass("is-show");
-            this.showMore($(obj).find(".cut-list__dropdown .cut-list__more"), obj);
+            obj.find(".cut-list__dropdown").addClass("is-show");
+            this.showMore(obj.find(".cut-list__dropdown .cut-list__more"), obj);
           },
           () => {
             options.onBeforeClose(obj);
-            $(obj).find(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+            obj.find(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
             options.onClose(obj);
           }
         );
       } else {
         obj.find(".cut-list__drop-toggle").on("click", () => {
-          const dropdown = $(obj).find(".cut-list__dropdown");
+          const dropdown = obj.find(".cut-list__dropdown");
           if (dropdown.is(".is-show")) {
             dropdown.removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
           } else {
@@ -88,42 +94,28 @@
 
     resizeHandle() {
       clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = setTimeout(() => this.reset(this.element), this.options.risezeDelay);
+      this.resizeTimeout = setTimeout(() => this.reset(), this.options.risezeDelay);
     }
 
-    reset(obj) {
-      this.position = this.limit;
-
-      $.when(this.backToStartingPlace(obj)).done(() => this.create(obj));
-    }
-
-    backToStartingPlace(obj) {
-      const more_elems = obj.find(".cut-list__more .cut-list__elem");
-
-      more_elems.each(function() {
-        const elem_index = $(this).data("index");
-
-        if (elem_index == 0) {
-          $(this).prependTo(obj);
-        } else {
-          $(this).insertAfter(obj.find('.cut-list__elem[data-index="' + (elem_index - 1) + '"]'));
-        }
-      });
+    reset() {
+      this.element.replaceWith(this.initState.clone(true));
+      this.element = this.initState.clone(true);
+      this.init();
     }
 
     create(obj, alwaysVisibleIndex, limit) {
       let areaWidth = obj.innerWidth();
       let listWidth = obj.find(".cut-list__dropdown").outerWidth(true);
 
-      let find_elems = '.cut-list__elem:not(".cut-list__dropdown")';
+      let findElemsSelector = '.cut-list__elem:not(".cut-list__dropdown")';
 
       if (alwaysVisibleIndex != -1) {
-        listWidth += obj.find(this.options.alwaysVisibleElem + ':first').outerWidth(true);
-        find_elems = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
+        listWidth += this.getOuterWidthWithMargin(obj.find(this.options.alwaysVisibleElem + ':first'));
+        findElemsSelector = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
       }
 
-      obj.find(find_elems).each((index, element) => {
-        listWidth += $(element).outerWidth(true);
+      obj.find(findElemsSelector).each((index, element) => {
+        listWidth += this.getOuterWidthWithMargin($(element));
 
         if (listWidth >= areaWidth) {
           this.position = alwaysVisibleIndex != -1 && index > alwaysVisibleIndex
@@ -139,15 +131,21 @@
       });
     }
 
+    getOuterWidthWithMargin(element) {
+      const marginLeft = parseInt(element.css('margin-left'), 10) || 0;
+      const marginRight = parseInt(element.css('margin-right'), 10) || 0;
+      return element.outerWidth() + marginLeft + marginRight;
+    }
+
     move(obj, position, limit) {
-      let find_elems = '.cut-list__elem:not(".cut-list__dropdown")';
+      let findElemsSelector = '.cut-list__elem:not(".cut-list__dropdown")';
 
       if (this.alwaysVisibleIndex != -1) {
-        find_elems = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
+        findElemsSelector = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
       }
 
       for (let x = position; x <= limit; x++) {
-        obj.find(`${find_elems}[data-index="${x}"]`).appendTo(obj.find(".cut-list__more-content"));
+        obj.find(`${findElemsSelector}[data-index="${x}"]`).appendTo(obj.find(".cut-list__more-content"));
       }
 
       /* Если остался видимым 1 элемент и он является alwaysVisibleElem тогда скрываем его */
@@ -155,7 +153,7 @@
         if (obj.find(".cut-list__elem:first").is(this.options.alwaysVisibleElem)) {
           let areaWidth = obj.innerWidth();
           let listWidth = obj.find(".cut-list__dropdown").outerWidth(true) +
-                          obj.find(`${this.options.alwaysVisibleElem}:first`).outerWidth(true);
+                          this.getOuterWidthWithMargin(obj.find(`${this.options.alwaysVisibleElem}:first`));
 
           if (listWidth >= areaWidth) {
             obj.find(`.cut-list__elem:not(".cut-list__dropdown")[data-index="${obj.find(`${this.options.alwaysVisibleElem}:first`).data("index")}"]`)
@@ -166,12 +164,12 @@
     }
 
     showMore(moreBlock, obj) {
-      const document_height = $(document).outerHeight(true);
+      const documentHeight = $(document).outerHeight(true);
 
       moreBlock.css("visibility", "hidden").show();
       this.options.onBeforeCalc(obj);
 
-      if ((moreBlock.offset().top + moreBlock.innerHeight()) > document_height) {
+      if ((moreBlock.offset().top + moreBlock.innerHeight()) > documentHeight) {
         moreBlock.addClass("is-top");
       }
 
