@@ -11,37 +11,35 @@
     resizeDelay: 50
   };
 
-  const extend = (defaults, options) => Object.assign({}, defaults, options);
-
   class InsalesCutList {
-    constructor(element, options) {
-      this.element = $(element);
-      this.options = extend(defaults, options);
+    constructor(elements, options) {
+      this.elements = $(elements);
+      this.options = $.extend({}, defaults, options);
       this.resizeTimeout = null;
-      this.initState = this.element.clone(true);
-      this.currentVisibleItems = [];
-      this.currentStyles = [];
-      this.init();
+      this.initState = this.elements.clone(true);
+      this.prevSizes = [];
+      this.observers = [];
 
-      this.setupObserver();
+      this.init();
+      this.setupObservers();
     }
 
     init() {
-      const $this = this.element;
-      const options = this.options;
-
-      this.setup($this);
+      this.elements.each((index, element) => {
+        const $this = $(element);
+        this.setup($this);
+      });
 
       $(document).on("click", (event) => {
         if ($(event.target).closest(".cut-list__dropdown").length) return;
 
-        options.onBeforeClose($this);
+        this.options.onBeforeClose(this.elements);
         $(".cut-list__dropdown.is-show")
           .removeClass("is-show")
           .find(".cut-list__more")
           .hide()
           .removeClass("is-top is-left");
-        options.onClose($this);
+        this.options.onClose(this.elements);
       });
     }
 
@@ -94,73 +92,34 @@
       }
     }
 
-    setupObserver() {
-      if (this.observer) {
-          this.observer.disconnect();
-      }
-      this.observer = new ResizeObserver(() => this.resizeHandle());
-      this.observer.observe(this.element[0]);
-    }
-
-    resizeHandle() {
-      clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = setTimeout(() => this.checkForResize(), this.options.resizeDelay);
-    }
-
-    checkForResize() {
-      const visibleItems = this.getVisibleItems();
-      const currentStyles = this.getCurrentStyles();
-
-      if (!this.arraysEqual(this.currentVisibleItems, visibleItems) || !this.arraysEqual(this.currentStyles, currentStyles)) {
-        this.currentVisibleItems = visibleItems;
-        this.currentStyles = currentStyles;
-        this.reset();
-      }
-    }
-
-    arraysEqual(a, b) {
-      if (a === b) return true;
-      if (a == null || b == null) return false;
-      if (a.length !== b.length) return false;
-
-      for (let i = 0; i < a.length; ++i) {
-        if (a[i] !== b[i]) return false;
-      }
-      return true;
-    }
-
-    getVisibleItems() {
-      const items = [];
-      this.element.find('.cut-list__elem:not(".cut-list__dropdown")').each(function() {
-        items.push($(this).data('index'));
-      });
-      return items;
-    }
-
-    getCurrentStyles() {
-      const styles = [];
-      this.element.find('.cut-list__elem:not(".cut-list__dropdown")').each(function() {
-        const element = $(this);
-        const computedStyle = window.getComputedStyle(element[0]);
-
-        styles.push({
-          width: computedStyle.width,
-          height: computedStyle.height,
-          marginLeft: computedStyle.marginLeft,
-          marginRight: computedStyle.marginRight,
-          paddingLeft: computedStyle.paddingLeft,
-          paddingRight: computedStyle.paddingRight,
+    setupObservers() {
+      this.removeObservers();
+      const that = this;
+      this.elements.each((index, element) => {
+        const observer = new ResizeObserver(() => {
+          clearTimeout(that.resizeTimeout);
+          that.resizeTimeout = setTimeout(() => that.redrawList(), that.options.resizeDelay);
         });
+        observer.observe(element);
+        this.observers.push(observer);
       });
-      return styles;
     }
 
     reset() {
-      const newElement = this.initState.clone(true); // Создаем новый клон состояния
-      this.element.replaceWith(newElement); // Заменяем текущий элемент DOM новым клоном
-      this.element = newElement; // Обновляем ссылку на элемент
-      this.setupObserver(); // Переинициализация наблюдателя
-      this.init(); // Переинициализация
+      this.redrawList();
+    }
+
+    removeObservers() {
+      this.observers.forEach(observer => observer.disconnect());
+      this.observers = [];
+    }
+
+    redrawList() {
+      this.elements.each((index, element) => {
+        const $element = $(element);
+        $element.html(this.initState.eq(index).html());
+        this.setup($element);
+      });
     }
 
     create(obj, alwaysVisibleIndex, limit) {
@@ -221,7 +180,6 @@
         obj.find(`${findElemsSelector}[data-index="${x}"]`).appendTo(obj.find(".cut-list__more-content"));
       }
 
-      // Если остался видимый 1 элемент и он является alwaysVisibleElem тогда скрываем его
       if (this.alwaysVisibleIndex != -1) {
         this.handleRemainingAlwaysVisibleElement(obj);
       }
@@ -264,14 +222,18 @@
     }
 
     destroy() {
-      this.element.html(this.element.clone().html());
-      this.observer.disconnect();
+      this.removeObservers();
+      this.elements.each((index, element) => {
+        $(element).html(this.initState.eq(index).html());
+      });
     }
   }
 
   $.fn.cutList = function(options) {
     return this.each(function() {
-      new InsalesCutList(this, options);
+      if (!$.data(this, 'InsalesCutList')) {
+        $.data(this, 'InsalesCutList', new InsalesCutList(this, options));
+      }
     });
   };
 
