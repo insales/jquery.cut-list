@@ -1,50 +1,33 @@
-Разметка
---------
+# InsalesCutList
 
-```
-div - Cut list Node
-	div - Элемент 1
-	div - Элемент 2
-	div - Элемент 3
-	div - ...
-```
+## Описание
 
-Опции
------
+`InsalesCutList` — это jQuery-плагин, предназначенный для обработки списков, содержащих слишком много элементов для отображения в одной строке. 
+## Содержание
 
-**moreBtnTitle:** - Текст кнопки "Еще". Default - "Еще". Можно передать html-строку
+- [Инициализация](#инициализация)
+- [Опции](#опции)
+- [Примеры](#примеры)
+  - [Инициализация через класс](#инициализация-через-класс)
+  - [Пример использования с jQuery](#пример-использования-с-jquery)
+- [Настройка minWidth](#настройка-minwidth)
 
-**alwaysVisibleElem:** - Селектор элемента, который не сворачивается в дополнительное меню. Может быть только 1 элемент (Если найдено несколько, то берется первый). Default - undefined
+## Инициализация
 
-**showMoreOnHover:** - Показ дополнительного меню по наведению. Default - false
+### Использование класса
 
-**resizeDelay:** - Задержка при ресайзе окна (мс). Default - 50
+Для инициализации плагина напрямую через класс:
 
-**onOpen:** - Колбек открытия списка
-
-**onBeforeOpen:** - Колбек перед открытием списка
-
-**onClose:** - Колбек закрытия списка
-
-**onBeforeClose:** - Колбек перед закрытием списка
-
-DEMO 1
-------
-```js
-$(".cut-list").cutList({
-	moreBtnTitle: 'MORE ...',
-	alwaysVisibleElem: '.my-active'
-});
-```
-
-Инициализация через класс InsalesCutList
-
-```js
+```javascript
 new InsalesCutList($(".cut-list"), {
-	moreBtnTitle: 'MORE ...',
-	alwaysVisibleElem: '.my-active'
+  moreBtnTitle: 'MORE ...',
+  alwaysVisibleElem: '.my-active'
 });
 ```
+
+### HTML Структура
+
+Ожидаемая структура HTML для списка:
 
 ```html
 <div class="cut-list">
@@ -52,28 +35,41 @@ new InsalesCutList($(".cut-list"), {
   <div><a href="#">Item 2</a></div>
   <div><a href="#">Item 3</a></div>
   <div><a href="#">Item 4</a></div>
-  <div><a href="#">Item 5</a></div>
-  <div class="my-active"><a href="#">Item 6</a></div>
-  <div><a href="#">Item 7</a></div>
-  <div><a href="#">Item 8</a></div>
-  <div><a href="#">Item 9</a></div>
-  <div><a href="#">Item 10</a></div>
 </div>
 ```
-  
 
-DEMO 2
-------
-```js
-$(".cut-list2").cutList({
-	moreBtnTitle: '<div class="my-class"><span>Icon +</span></div>',
-	showMoreOnHover: true,
-	resizeDelay: 100
+## Опции
+
+| Опция                 | Тип        | По умолчанию               | Описание |
+|-----------------------|------------|----------------------------|-------------|
+| `moreBtnTitle`        | `string`   | `'Еще'`                    | Текст кнопки "Еще". Может быть HTML строкой. |
+| `showMoreOnHover`     | `boolean`  | `false`                    | Показ скрытых элементов при наведении мыши. |
+| `alwaysVisibleElem`   | `string`   | `undefined`                | Селектор элемента, который всегда должен быть видимым. Только первый найденный элемент будет учтен. |
+| `onBeforeCalc`        | `function` | `() => {}`                 | Колбек перед расчетом видимых/скрытых элементов. |
+| `onBeforeOpen`        | `function` | `() => {}`                 | Колбек перед открытием выпадающего списка. |
+| `onOpen`              | `function` | `() => {}`                 | Колбек при открытии выпадающего списка. |
+| `onBeforeClose`       | `function` | `() => {}`                 | Колбек перед закрытием выпадающего списка. |
+| `onClose`             | `function` | `() => {}`                 | Колбек при закрытии выпадающего списка. |
+| `resizeDelay`         | `number`   | `50`                       | Задержка в мс для дебаунса события resize. |
+| `minWidth`            | `number`   | `null`                     | Минимальная ширина экрана для инициализации плагина. Если ширина экрана ниже этого значения, плагин не будет инициализирован. |
+
+## Примеры
+
+### Инициализация через класс
+
+```javascript
+new InsalesCutList($(".cut-list"), {
+  moreBtnTitle: '<span class="icon icon-ellipsis"></span>',
+  alwaysVisibleElem: '.is-current'
+  showMoreOnHover: true,
+  minWidth: 768 // Минимальная ширина экрана для инициализации
 });
-``` 
+```
+
+HTML:
 
 ```html
-<ul class="cut-list2">
+<ul class="cut-list">
   <li>Item 1</li>
   <li>Item 2</li>
   <li>Item 3</li>
@@ -85,9 +81,35 @@ $(".cut-list2").cutList({
   <li>Item 9</li>
   <li>Item 10</li>
 </ul>
-``` 
+```
 
-Минификация
---------
+### Пример использования с jQuery
 
-`npm run min`
+```javascript
+$(".cut-list").cutList({
+  moreBtnTitle: 'MORE ...',
+  alwaysVisibleElem: '.my-active'
+});
+```
+
+## Настройка minWidth
+
+Настройка `minWidth` позволяет определить, следует ли инициализировать плагин в зависимости от текущей ширины экрана. 
+
+- **Если установлено значение minWidth и ширина экрана меньше minWidth:**
+  - Плагин **не будет инициализирован** или будет уничтожен, если уже был инициализирован.
+  
+- **Когда ширина экрана становится больше или равна minWidth:**
+  - Плагин **будет инициализирован**, если его до этого не было.
+
+#### Пример кода
+
+В этом примере настройка `minWidth` установлена на 768 пикселей. Плагин будет инициализирован только на экранах шириной не менее 768 пикселей.
+
+```javascript
+new InsalesCutList($(".cut-list"), {
+  moreBtnTitle: '<div class="my-class"><span>Icon +</span></div>',
+  showMoreOnHover: true,
+  minWidth: 768
+});
+```
