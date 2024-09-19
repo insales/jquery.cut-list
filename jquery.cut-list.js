@@ -8,31 +8,52 @@
     onOpen: function() {},
     onBeforeClose: function() {},
     onClose: function() {},
-    resizeDelay: 50
+    resizeDelay: 50,
+    minWidth: null // настройка для минимальной ширины экрана
   };
+
+  const WINDOW_RESIZE_DEBOUNCE_DELAY = 300;
 
   class InsalesCutList {
     constructor(elements, options) {
       this.elements = $(elements);
       this.options = $.extend({}, defaults, options);
-      this.resizeTimeout = null;
+      this.resizeTimeoutObserver = null;
+      this.resizeTimeoutWindow = null;
       this.initState = this.elements.clone(true);
-      this.prevSizes = [];
       this.observers = [];
+      this.initialized = false;
 
-      this.init();
+      if (this.options.minWidth && this.options.minWidth > 0) {
+        this.checkScreenWidth();
+        this.setupWindowResizeHandler();
+      } else {
+        this.init();
+      }
       this.setupObservers();
     }
 
-    init() {
-      this.elements.each((index, element) => {
-        const $this = $(element);
-        this.setup($this);
-      });
+    checkScreenWidth() {
+      const currentWidth = $(window).width();
+      const isBelowMinWidth = (this.options.minWidth && this.options.minWidth > 0) ? currentWidth <= this.options.minWidth : false;
 
-      $(document).on("click", (event) => {
-        if ($(event.target).closest(".cut-list__dropdown").length) return;
+      if (isBelowMinWidth && this.initialized) {
+        this.destroy();
+        return;
+      }
 
+      if (!isBelowMinWidth && !this.initialized) {
+        this.init();
+      }
+    }
+
+    updateDOMContentLoadedEvent() {
+      $(document).off("click", this.documentClickHandler);
+      $(document).on("click", this.documentClickHandler.bind(this));
+    }
+
+    documentClickHandler(event) {
+      if (!$(event.target).closest(".cut-list__dropdown").length) {
         this.options.onBeforeClose(this.elements);
         $(".cut-list__dropdown.is-show")
           .removeClass("is-show")
@@ -40,19 +61,25 @@
           .hide()
           .removeClass("is-top is-left");
         this.options.onClose(this.elements);
+      }
+    }
+
+    init() {
+      this.elements.each((index, element) => {
+        $(element).addClass("cut-list-ready");
+        const $this = $(element);
+        this.setup($this);
       });
+
+      $(document).on("click", this.documentClickHandler.bind(this));
+
+      this.initialized = true;
+      this.updateDOMContentLoadedEvent();
     }
 
     setup(obj) {
-      const options = this.options;
-
       if (!obj.find(".cut-list__dropdown").length) {
-        obj.append('<div style="display:none" class="cut-list__elem cut-list__dropdown"></div>')
-          .find(".cut-list__dropdown")
-          .append('<div class="cut-list__drop"></div>')
-          .find(".cut-list__drop")
-          .append(`<div class="cut-list__drop-toggle">${options.moreBtnTitle}</div>`)
-          .append('<div class="cut-list__more"><div class="cut-list__more-content"></div></div>');
+        this.createDropdownElements(obj);
       }
 
       obj.addClass("cut-list").children().each(function(index) {
@@ -60,53 +87,78 @@
       });
 
       let limit = obj.find(".cut-list__elem").length;
-      let alwaysVisibleIndex = obj.find(options.alwaysVisibleElem + ':first').index();
+      let alwaysVisibleIndex = obj.find(this.options.alwaysVisibleElem + ':first').index();
 
-      if (obj.find(options.alwaysVisibleElem).length > 1)
+      if (obj.find(this.options.alwaysVisibleElem).length > 1) {
         console.log("Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.");
+      }
 
       this.create(obj, alwaysVisibleIndex, limit);
+      this.setEventHandlers(obj);
+    }
 
+    createDropdownElements(obj) {
+      obj.append('<div style="display:none" class="cut-list__elem cut-list__dropdown"></div>')
+      .find(".cut-list__dropdown")
+      .append('<div class="cut-list__drop"></div>')
+      .find(".cut-list__drop")
+      .append(`<div class="cut-list__drop-toggle">${this.options.moreBtnTitle}</div>`)
+      .append('<div class="cut-list__more"><div class="cut-list__more-content"></div></div>');
+    }
+
+    setEventHandlers(obj) {
+      const options = this.options;
       if (options.showMoreOnHover) {
-        obj.find(".cut-list__drop").hover(
-          () => {
-            obj.find(".cut-list__dropdown").addClass("is-show");
-            this.showMore(obj.find(".cut-list__dropdown .cut-list__more"), obj);
-          },
-          () => {
-            options.onBeforeClose(obj);
-            obj.find(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-            options.onClose(obj);
-          }
-        );
+        this.addHoverHandlers(obj);
       } else {
-        obj.find(".cut-list__drop-toggle").on("click", () => {
-          const dropdown = obj.find(".cut-list__dropdown");
-          if (dropdown.is(".is-show")) {
-            dropdown.removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-          } else {
-            dropdown.addClass("is-show");
-            this.showMore(dropdown.find(".cut-list__more"), obj);
-          }
-        });
+        this.addClickHandlers(obj);
       }
+    }
+
+    addHoverHandlers(obj) {
+      obj.find(".cut-list__drop").hover(
+        () => {
+          obj.find(".cut-list__dropdown").addClass("is-show");
+          this.showMore(obj.find(".cut-list__dropdown .cut-list__more"), obj);
+        },
+        () => {
+          this.options.onBeforeClose(obj);
+          obj.find(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+          this.options.onClose(obj);
+        }
+      );
+    }
+
+    addClickHandlers(obj) {
+      obj.find(".cut-list__drop-toggle").on("click", () => {
+        const dropdown = obj.find(".cut-list__dropdown");
+        dropdown.toggleClass("is-show");
+        this.showMore(dropdown.find(".cut-list__more"), obj);
+      });
     }
 
     setupObservers() {
       this.removeObservers();
-      const that = this;
+
       this.elements.each((index, element) => {
         const observer = new ResizeObserver(() => {
-          clearTimeout(that.resizeTimeout);
-          that.resizeTimeout = setTimeout(() => that.redrawList(), that.options.resizeDelay);
+          clearTimeout(this.resizeTimeoutObserver);
+          this.resizeTimeoutObserver = setTimeout(() => this.redrawList(), this.options.resizeDelay);
         });
         observer.observe(element);
         this.observers.push(observer);
       });
     }
 
-    reset() {
-      this.redrawList();
+    setupWindowResizeHandler() {
+      $(window).on('resize', this.debouncedHandleResize.bind(this));
+    }
+
+    debouncedHandleResize() {
+      clearTimeout(this.resizeTimeoutWindow);
+      this.resizeTimeoutWindow = setTimeout(() => {
+        this.checkScreenWidth();
+      }, WINDOW_RESIZE_DEBOUNCE_DELAY);
     }
 
     removeObservers() {
@@ -115,11 +167,23 @@
     }
 
     redrawList() {
+      if (this.initialized) {
+        this.elements.each((index, element) => {
+          const $element = $(element);
+          $element.html(this.initState.eq(index).html());
+          this.setup($element);
+        });
+      }
+    }
+
+    destroy() {
+      this.removeObservers();
+      $(document).off("click", this.documentClickHandler);
       this.elements.each((index, element) => {
-        const $element = $(element);
-        $element.html(this.initState.eq(index).html());
-        this.setup($element);
+        $(element).addClass("cut-list-ready");
+        $(element).html(this.initState.eq(index).html());
       });
+      this.initialized = false;
     }
 
     create(obj, alwaysVisibleIndex, limit) {
@@ -227,30 +291,12 @@
       const visiblyFitsBelow = visibleSpaceBelow >= moreBlockHeight;
 
       // Определяем позицию блока (сверху или снизу)
-      if (!visiblyFitsBelow && fitsAbove) {
-        moreBlock.addClass("is-top");
-      } else if (!fitsBelow && fitsAbove) {
-        moreBlock.addClass("is-top");
-      } else {
-        moreBlock.removeClass("is-top");
-      }
-
-      if (moreBlock.offset().left < 0) {
-        moreBlock.addClass("is-left");
-      } else {
-        moreBlock.removeClass("is-left");
-      }
+      moreBlock.toggleClass("is-top", !visiblyFitsBelow && fitsAbove || !fitsBelow && fitsAbove);
+      moreBlock.toggleClass("is-left", moreBlock.offset().left < 0);
 
       this.options.onBeforeOpen(obj);
       moreBlock.css("visibility", "visible");
       this.options.onOpen(obj);
-    }
-
-    destroy() {
-      this.removeObservers();
-      this.elements.each((index, element) => {
-        $(element).html(this.initState.eq(index).html());
-      });
     }
   }
 
