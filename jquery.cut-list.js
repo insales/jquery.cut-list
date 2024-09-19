@@ -203,17 +203,42 @@
     }
 
     showMore(moreBlock, obj) {
-      const documentHeight = $(document).outerHeight(true);
+      const windowHeight = $(window).height();
+      const documentHeight = $(document).height();
+      const scrollTop = $(window).scrollTop();
+      const moreBlockHeight = moreBlock.outerHeight();
+      const triggerBottom = obj.offset().top + obj.outerHeight();
 
       moreBlock.css("visibility", "hidden").show();
       this.options.onBeforeCalc(obj);
 
-      if ((moreBlock.offset().top + moreBlock.innerHeight()) > documentHeight) {
+      // Вычисляем свободное пространство ниже триггерного объекта
+      const spaceBelow = documentHeight - triggerBottom;
+      // Вычисляем свободное пространство выше триггерного объекта
+      const spaceAbove = obj.offset().top - scrollTop;
+      // Вычисляем видимое пространство ниже триггерного объекта
+      const visibleSpaceBelow = windowHeight - (triggerBottom - scrollTop);
+
+      // Проверяем, помещается ли блок ниже триггерного объекта
+      const fitsBelow = spaceBelow >= moreBlockHeight;
+      // Проверяем, помещается ли блок выше триггерного объекта
+      const fitsAbove = spaceAbove >= moreBlockHeight;
+      // Проверяем, помещается ли блок в видимой области ниже триггерного объекта
+      const visiblyFitsBelow = visibleSpaceBelow >= moreBlockHeight;
+
+      // Определяем позицию блока (сверху или снизу)
+      if (!visiblyFitsBelow && fitsAbove) {
         moreBlock.addClass("is-top");
+      } else if (!fitsBelow && fitsAbove) {
+        moreBlock.addClass("is-top");
+      } else {
+        moreBlock.removeClass("is-top");
       }
 
       if (moreBlock.offset().left < 0) {
         moreBlock.addClass("is-left");
+      } else {
+        moreBlock.removeClass("is-left");
       }
 
       this.options.onBeforeOpen(obj);
