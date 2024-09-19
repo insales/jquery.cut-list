@@ -1,4 +1,4 @@
-(function($, window) {
+(function($, window, document) {
   const defaults = {
     moreBtnTitle: 'Еще',
     showMoreOnHover: false,
@@ -31,9 +31,9 @@
       $(document).on("click", (event) => {
         if ($(event.target).closest(".cut-list__dropdown").length) return;
 
-        options.onBeforeClose($this)
+        options.onBeforeClose($this);
         $(".cut-list__dropdown.is-show").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-        options.onClose($this)
+        options.onClose($this);
       });
     }
 
@@ -54,7 +54,6 @@
       });
 
       let limit = obj.find(".cut-list__elem").length;
-      let index = limit - 1;
       let alwaysVisibleIndex = obj.find(options.alwaysVisibleElem + ':first').index();
 
       if (obj.find(options.alwaysVisibleElem).length > 1)
@@ -65,22 +64,23 @@
       if (options.showMoreOnHover) {
         obj.find(".cut-list__drop").hover(
           () => {
-            $(this).parents(".cut-list__dropdown").addClass("is-show");
-            this.showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"), obj);
+            $(obj).find(".cut-list__dropdown").addClass("is-show");
+            this.showMore($(obj).find(".cut-list__dropdown .cut-list__more"), obj);
           },
           () => {
-            options.onBeforeClose(obj)
-            $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-            options.onClose(obj)
+            options.onBeforeClose(obj);
+            $(obj).find(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+            options.onClose(obj);
           }
         );
       } else {
         obj.find(".cut-list__drop-toggle").on("click", () => {
-          if ($(this).parents(".cut-list__dropdown").is(".is-show")) {
-            $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+          const dropdown = $(obj).find(".cut-list__dropdown");
+          if (dropdown.is(".is-show")) {
+            dropdown.removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
           } else {
-            $(this).parents(".cut-list__dropdown").addClass("is-show");
-            this.showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"), obj);
+            dropdown.addClass("is-show");
+            this.showMore(dropdown.find(".cut-list__more"), obj);
           }
         });
       }
@@ -122,8 +122,8 @@
         find_elems = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
       }
 
-      obj.find(find_elems).each(function(index) {
-        listWidth += $(this).outerWidth(true);
+      obj.find(find_elems).each((index, element) => {
+        listWidth += $(element).outerWidth(true);
 
         if (listWidth >= areaWidth) {
           this.position = alwaysVisibleIndex != -1 && index > alwaysVisibleIndex
@@ -132,11 +132,11 @@
 
           this.move(obj, this.position, limit);
           obj.addClass("with-more-items").find(".cut-list__dropdown").show();
-          return false;
+          return false; // прерывает each цикл
         } else {
           obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
         }
-      }.bind(this));
+      });
     }
 
     move(obj, position, limit) {
@@ -197,4 +197,4 @@
   };
 
   window.InsalesCutList = InsalesCutList;
-})(jQuery, window);
+})(jQuery, window, document);
