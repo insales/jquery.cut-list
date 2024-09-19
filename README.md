@@ -37,6 +37,15 @@ $(".cut-list").cutList({
 });
 ```
 
+Инициализация через класс InsalesCutList
+
+```js
+new InsalesCutList($(".cut-list"), {
+	moreBtnTitle: 'MORE ...',
+	alwaysVisibleElem: '.my-active'
+});
+```
+
 ```html
 <div class="cut-list">
   <div><a href="#">Item 1</a></div>
