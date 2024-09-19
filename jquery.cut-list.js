@@ -47,7 +47,7 @@
       }
     }
 
-    updateDOMContentLoadedEvent() {
+    updateDocumentClickHandler() {
       $(document).off("click", this.documentClickHandler);
       $(document).on("click", this.documentClickHandler.bind(this));
     }
@@ -71,10 +71,8 @@
         this.setup($this);
       });
 
-      $(document).on("click", this.documentClickHandler.bind(this));
-
       this.initialized = true;
-      this.updateDOMContentLoadedEvent();
+      this.updateDocumentClickHandler();
     }
 
     setup(obj) {
@@ -123,7 +121,8 @@
         },
         () => {
           this.options.onBeforeClose(obj);
-          obj.find(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+          obj.find(".cut-list__dropdown").removeClass("is-show")
+          this.hideMore(obj.find(".cut-list__dropdown").find(".cut-list__more"));
           this.options.onClose(obj);
         }
       );
@@ -132,8 +131,12 @@
     addClickHandlers(obj) {
       obj.find(".cut-list__drop-toggle").on("click", () => {
         const dropdown = obj.find(".cut-list__dropdown");
-        dropdown.toggleClass("is-show");
-        this.showMore(dropdown.find(".cut-list__more"), obj);
+        const isShow = dropdown.toggleClass("is-show");
+        if (isShow) {
+          this.showMore(dropdown.find(".cut-list__more"), obj);
+        } else {
+          this.hideMore(dropdown.find(".cut-list__more"));
+        }
       });
     }
 
@@ -266,6 +269,10 @@
       }
     }
 
+    hideMore(moreBlock) {
+      $(moreBlock).hide().removeClass("is-top is-left")
+    }
+
     showMore(moreBlock, obj) {
       const windowHeight = $(window).height();
       const documentHeight = $(document).height();
@@ -304,6 +311,26 @@
     return this.each(function() {
       if (!$.data(this, 'InsalesCutList')) {
         $.data(this, 'InsalesCutList', new InsalesCutList(this, options));
+      }
+    });
+  };
+
+  $.fn.cutList.setup = function(elments, options = {}) {
+    return $(elments).each(function() {
+      const instance = $.data(this, 'InsalesCutList');
+      if (instance) {
+        instance.init();
+      } else {
+        $.data(this, 'InsalesCutList', new InsalesCutList(this, options));
+      }
+    });
+  };
+
+  $.fn.cutList.destroy = function(elments) {
+    return $(elments).each(function() {
+      const instance = $.data(this, 'InsalesCutList');
+      if (instance) {
+        instance.destroy();
       }
     });
   };
