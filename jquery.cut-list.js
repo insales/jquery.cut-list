@@ -98,9 +98,10 @@
     }
 
     reset() {
-      this.element.replaceWith(this.initState.clone(true));
-      this.element = this.initState.clone(true);
-      this.init();
+      const newElement = this.initState.clone(true); // Создаем новый клон состояния
+      this.element.replaceWith(newElement); // Заменяем текущий элемент DOM новым клоном
+      this.element = newElement; // Обновляем ссылку на элемент
+      this.init(); // Переинициализация
     }
 
     create(obj, alwaysVisibleIndex, limit) {
