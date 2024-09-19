@@ -18,7 +18,7 @@ div - Cut list Node
 
 **showMoreOnHover:** - Показ дополнительного меню по наведению. Default - false
 
-**risezeDelay:** - Задержка при ресайзе окна (мс). Default - 50
+**resizeDelay:** - Задержка при ресайзе окна (мс). Default - 50
 
 **onOpen:** - Колбек открытия списка
 
@@ -68,7 +68,7 @@ DEMO 2
 $(".cut-list2").cutList({
 	moreBtnTitle: '<div class="my-class"><span>Icon +</span></div>',
 	showMoreOnHover: true,
-	risezeDelay: 100
+	resizeDelay: 100
 });
 ``` 
 
