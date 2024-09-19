@@ -8,7 +8,7 @@
     onOpen: function() {},
     onBeforeClose: function() {},
     onClose: function() {},
-    risezeDelay: 50
+    resizeDelay: 50
   };
 
   const extend = (defaults, options) => Object.assign({}, defaults, options);
@@ -19,7 +19,11 @@
       this.options = extend(defaults, options);
       this.resizeTimeout = null;
       this.initState = this.element.clone(true);
+      this.currentVisibleItems = [];
+      this.currentStyles = [];
       this.init();
+
+      this.setupObserver();
     }
 
     init() {
@@ -27,8 +31,6 @@
       const options = this.options;
 
       this.setup($this);
-
-      $(window).on('resize', () => this.resizeHandle());
 
       $(document).on("click", (event) => {
         if ($(event.target).closest(".cut-list__dropdown").length) return;
@@ -92,44 +94,118 @@
       }
     }
 
+    setupObserver() {
+      if (this.observer) {
+          this.observer.disconnect();
+      }
+      this.observer = new ResizeObserver(() => this.resizeHandle());
+      this.observer.observe(this.element[0]);
+    }
+
     resizeHandle() {
       clearTimeout(this.resizeTimeout);
-      this.resizeTimeout = setTimeout(() => this.reset(), this.options.risezeDelay);
+      this.resizeTimeout = setTimeout(() => this.checkForResize(), this.options.resizeDelay);
+    }
+
+    checkForResize() {
+      const visibleItems = this.getVisibleItems();
+      const currentStyles = this.getCurrentStyles();
+
+      if (!this.arraysEqual(this.currentVisibleItems, visibleItems) || !this.arraysEqual(this.currentStyles, currentStyles)) {
+        this.currentVisibleItems = visibleItems;
+        this.currentStyles = currentStyles;
+        this.reset();
+      }
+    }
+
+    arraysEqual(a, b) {
+      if (a === b) return true;
+      if (a == null || b == null) return false;
+      if (a.length !== b.length) return false;
+
+      for (let i = 0; i < a.length; ++i) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    }
+
+    getVisibleItems() {
+      const items = [];
+      this.element.find('.cut-list__elem:not(".cut-list__dropdown")').each(function() {
+        items.push($(this).data('index'));
+      });
+      return items;
+    }
+
+    getCurrentStyles() {
+      const styles = [];
+      this.element.find('.cut-list__elem:not(".cut-list__dropdown")').each(function() {
+        const element = $(this);
+        const computedStyle = window.getComputedStyle(element[0]);
+
+        styles.push({
+          width: computedStyle.width,
+          height: computedStyle.height,
+          marginLeft: computedStyle.marginLeft,
+          marginRight: computedStyle.marginRight,
+          paddingLeft: computedStyle.paddingLeft,
+          paddingRight: computedStyle.paddingRight,
+        });
+      });
+      return styles;
     }
 
     reset() {
       const newElement = this.initState.clone(true); // Создаем новый клон состояния
       this.element.replaceWith(newElement); // Заменяем текущий элемент DOM новым клоном
       this.element = newElement; // Обновляем ссылку на элемент
+      this.setupObserver(); // Переинициализация наблюдателя
       this.init(); // Переинициализация
     }
 
     create(obj, alwaysVisibleIndex, limit) {
-      let areaWidth = obj.innerWidth();
+      const areaWidth = obj.innerWidth();
       let listWidth = obj.find(".cut-list__dropdown").outerWidth(true);
 
-      let findElemsSelector = '.cut-list__elem:not(".cut-list__dropdown")';
+      const findElemsSelector = this.getFindElemsSelector(alwaysVisibleIndex);
 
       if (alwaysVisibleIndex != -1) {
         listWidth += this.getOuterWidthWithMargin(obj.find(this.options.alwaysVisibleElem + ':first'));
-        findElemsSelector = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
       }
 
-      obj.find(findElemsSelector).each((index, element) => {
-        listWidth += this.getOuterWidthWithMargin($(element));
+      const elements = obj.find(findElemsSelector);
+      const shouldShowMoreItems = this.shouldShowMoreItems(elements, listWidth, areaWidth, alwaysVisibleIndex);
+
+      if (shouldShowMoreItems) {
+        this.move(obj, this.position, limit);
+        obj.addClass("with-more-items").find(".cut-list__dropdown").show();
+      } else {
+        obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
+      }
+    }
+
+    getFindElemsSelector(alwaysVisibleIndex) {
+      return alwaysVisibleIndex === -1
+        ? '.cut-list__elem:not(".cut-list__dropdown")'
+        : `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
+    }
+
+    shouldShowMoreItems(elements, initialListWidth, areaWidth, alwaysVisibleIndex) {
+      let listWidth = initialListWidth;
+
+      for (let index = 0; index < elements.length; index++) {
+        const element = $(elements[index]);
+        listWidth += this.getOuterWidthWithMargin(element);
 
         if (listWidth >= areaWidth) {
-          this.position = alwaysVisibleIndex != -1 && index > alwaysVisibleIndex
+          this.position = alwaysVisibleIndex !== -1 && index > alwaysVisibleIndex
             ? index + 1
             : index;
 
-          this.move(obj, this.position, limit);
-          obj.addClass("with-more-items").find(".cut-list__dropdown").show();
-          return false; // прерывает each цикл
-        } else {
-          obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
+          return true;
         }
-      });
+      }
+      return false;
     }
 
     getOuterWidthWithMargin(element) {
@@ -139,27 +215,31 @@
     }
 
     move(obj, position, limit) {
-      let findElemsSelector = '.cut-list__elem:not(".cut-list__dropdown")';
-
-      if (this.alwaysVisibleIndex != -1) {
-        findElemsSelector = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
-      }
+      const findElemsSelector = this.getFindElemsSelector(this.alwaysVisibleIndex);
 
       for (let x = position; x <= limit; x++) {
         obj.find(`${findElemsSelector}[data-index="${x}"]`).appendTo(obj.find(".cut-list__more-content"));
       }
 
-      /* Если остался видимым 1 элемент и он является alwaysVisibleElem тогда скрываем его */
+      // Если остался видимый 1 элемент и он является alwaysVisibleElem тогда скрываем его
       if (this.alwaysVisibleIndex != -1) {
-        if (obj.find(".cut-list__elem:first").is(this.options.alwaysVisibleElem)) {
-          let areaWidth = obj.innerWidth();
-          let listWidth = obj.find(".cut-list__dropdown").outerWidth(true) +
-                          this.getOuterWidthWithMargin(obj.find(`${this.options.alwaysVisibleElem}:first`));
+        this.handleRemainingAlwaysVisibleElement(obj);
+      }
+    }
 
-          if (listWidth >= areaWidth) {
-            obj.find(`.cut-list__elem:not(".cut-list__dropdown")[data-index="${obj.find(`${this.options.alwaysVisibleElem}:first`).data("index")}"]`)
-               .appendTo(obj.find(".cut-list__more-content"));
-          }
+    handleRemainingAlwaysVisibleElement(obj) {
+      const areaWidth = obj.innerWidth();
+      const firstElement = obj.find(".cut-list__elem:first");
+      const isFirstElementAlwaysVisible = firstElement.is(this.options.alwaysVisibleElem);
+
+      if (isFirstElementAlwaysVisible) {
+        let listWidth = obj.find(".cut-list__dropdown").outerWidth(true) +
+                        this.getOuterWidthWithMargin(firstElement);
+
+        if (listWidth >= areaWidth) {
+          const alwaysVisibleIndex = firstElement.data("index");
+          obj.find(`.cut-list__elem:not(".cut-list__dropdown")[data-index="${alwaysVisibleIndex}"]`)
+             .appendTo(obj.find(".cut-list__more-content"));
         }
       }
     }
@@ -185,7 +265,7 @@
 
     destroy() {
       this.element.html(this.element.clone().html());
-      $(window).off('resize', this.resizeHandle.bind(this));
+      this.observer.disconnect();
     }
   }
 
