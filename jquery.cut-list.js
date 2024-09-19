@@ -1,221 +1,200 @@
-(function($, window, undefined) {
-  var defaults = {
-      moreBtnTitle: 'Еще',
-      showMoreOnHover: false,
-      alwaysVisibleElem: undefined,
-      onBeforeCalc: function() {},
-      onBeforeOpen: function() {},
-      onOpen: function() {},
-      onBeforeClose: function() {},
-      onClose: function() {},
-      risezeDelay: 50
+(function($, window) {
+  const defaults = {
+    moreBtnTitle: 'Еще',
+    showMoreOnHover: false,
+    alwaysVisibleElem: undefined,
+    onBeforeCalc: function() {},
+    onBeforeOpen: function() {},
+    onOpen: function() {},
+    onBeforeClose: function() {},
+    onClose: function() {},
+    risezeDelay: 50
   };
 
-  function extend(defaults, options) {
-      var extended = {};
-      for (var prop in defaults) {
-          if (Object.prototype.hasOwnProperty.call(defaults, prop)) {
-              extended[prop] = defaults[prop];
-          }
-      }
-      for (var prop in options) {
-          if (Object.prototype.hasOwnProperty.call(options, prop)) {
-              extended[prop] = options[prop];
-          }
-      }
-      return extended;
-  }
+  const extend = (defaults, options) => Object.assign({}, defaults, options);
 
-  function InsalesCutList(element, options) {
+  class InsalesCutList {
+    constructor(element, options) {
       this.element = $(element);
       this.options = extend(defaults, options);
       this.init();
+    }
+
+    init() {
+      const $this = this.element;
+      const options = this.options;
+
+      this.setup($this);
+
+      $(window).on('resize', () => this.resizeHandle());
+
+      $(document).on("click", (event) => {
+        if ($(event.target).closest(".cut-list__dropdown").length) return;
+
+        options.onBeforeClose($this)
+        $(".cut-list__dropdown.is-show").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+        options.onClose($this)
+      });
+    }
+
+    setup(obj) {
+      const options = this.options;
+
+      if (!obj.find(".cut-list__dropdown").length) {
+        obj.append('<div style="display:none" class="cut-list__elem cut-list__dropdown"></div>')
+          .find(".cut-list__dropdown")
+          .append('<div class="cut-list__drop"></div>')
+          .find(".cut-list__drop")
+          .append(`<div class="cut-list__drop-toggle">${options.moreBtnTitle}</div>`)
+          .append('<div class="cut-list__more"><div class="cut-list__more-content"></div></div>');
+      }
+
+      obj.addClass("cut-list").children().each(function(index) {
+        $(this).attr("data-index", index).addClass("cut-list__elem");
+      });
+
+      let limit = obj.find(".cut-list__elem").length;
+      let index = limit - 1;
+      let alwaysVisibleIndex = obj.find(options.alwaysVisibleElem + ':first').index();
+
+      if (obj.find(options.alwaysVisibleElem).length > 1)
+        console.log("Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.");
+
+      this.create(obj, alwaysVisibleIndex, limit);
+
+      if (options.showMoreOnHover) {
+        obj.find(".cut-list__drop").hover(
+          () => {
+            $(this).parents(".cut-list__dropdown").addClass("is-show");
+            this.showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"), obj);
+          },
+          () => {
+            options.onBeforeClose(obj)
+            $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+            options.onClose(obj)
+          }
+        );
+      } else {
+        obj.find(".cut-list__drop-toggle").on("click", () => {
+          if ($(this).parents(".cut-list__dropdown").is(".is-show")) {
+            $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
+          } else {
+            $(this).parents(".cut-list__dropdown").addClass("is-show");
+            this.showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"), obj);
+          }
+        });
+      }
+    }
+
+    resizeHandle() {
+      clearTimeout(this.resizeTimeout);
+      this.resizeTimeout = setTimeout(() => this.reset(this.element), this.options.risezeDelay);
+    }
+
+    reset(obj) {
+      this.position = this.limit;
+
+      $.when(this.backToStartingPlace(obj)).done(() => this.create(obj));
+    }
+
+    backToStartingPlace(obj) {
+      const more_elems = obj.find(".cut-list__more .cut-list__elem");
+
+      more_elems.each(function() {
+        const elem_index = $(this).data("index");
+
+        if (elem_index == 0) {
+          $(this).prependTo(obj);
+        } else {
+          $(this).insertAfter(obj.find('.cut-list__elem[data-index="' + (elem_index - 1) + '"]'));
+        }
+      });
+    }
+
+    create(obj, alwaysVisibleIndex, limit) {
+      let areaWidth = obj.innerWidth();
+      let listWidth = obj.find(".cut-list__dropdown").outerWidth(true);
+
+      let find_elems = '.cut-list__elem:not(".cut-list__dropdown")';
+
+      if (alwaysVisibleIndex != -1) {
+        listWidth += obj.find(this.options.alwaysVisibleElem + ':first').outerWidth(true);
+        find_elems = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
+      }
+
+      obj.find(find_elems).each(function(index) {
+        listWidth += $(this).outerWidth(true);
+
+        if (listWidth >= areaWidth) {
+          this.position = alwaysVisibleIndex != -1 && index > alwaysVisibleIndex
+            ? index + 1
+            : index;
+
+          this.move(obj, this.position, limit);
+          obj.addClass("with-more-items").find(".cut-list__dropdown").show();
+          return false;
+        } else {
+          obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
+        }
+      }.bind(this));
+    }
+
+    move(obj, position, limit) {
+      let find_elems = '.cut-list__elem:not(".cut-list__dropdown")';
+
+      if (this.alwaysVisibleIndex != -1) {
+        find_elems = `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
+      }
+
+      for (let x = position; x <= limit; x++) {
+        obj.find(`${find_elems}[data-index="${x}"]`).appendTo(obj.find(".cut-list__more-content"));
+      }
+
+      /* Если остался видимым 1 элемент и он является alwaysVisibleElem тогда скрываем его */
+      if (this.alwaysVisibleIndex != -1) {
+        if (obj.find(".cut-list__elem:first").is(this.options.alwaysVisibleElem)) {
+          let areaWidth = obj.innerWidth();
+          let listWidth = obj.find(".cut-list__dropdown").outerWidth(true) +
+                          obj.find(`${this.options.alwaysVisibleElem}:first`).outerWidth(true);
+
+          if (listWidth >= areaWidth) {
+            obj.find(`.cut-list__elem:not(".cut-list__dropdown")[data-index="${obj.find(`${this.options.alwaysVisibleElem}:first`).data("index")}"]`)
+               .appendTo(obj.find(".cut-list__more-content"));
+          }
+        }
+      }
+    }
+
+    showMore(moreBlock, obj) {
+      const document_height = $(document).outerHeight(true);
+
+      moreBlock.css("visibility", "hidden").show();
+      this.options.onBeforeCalc(obj);
+
+      if ((moreBlock.offset().top + moreBlock.innerHeight()) > document_height) {
+        moreBlock.addClass("is-top");
+      }
+
+      if (moreBlock.offset().left < 0) {
+        moreBlock.addClass("is-left");
+      }
+
+      this.options.onBeforeOpen(obj);
+      moreBlock.css("visibility", "visible");
+      this.options.onOpen(obj);
+    }
+
+    destroy() {
+      this.element.html(this.element.clone().html());
+      $(window).off('resize', this.resizeHandle.bind(this));
+    }
   }
 
-  InsalesCutList.prototype.init = function() {
-      var $this = this.element;
-      var options = this.options;
-
-      setup.call(this, $this);
-
-      function setup(obj) {
-          if (!obj.find(".cut-list__dropdown").length) {
-              obj.append('<div style="display:none" class="cut-list__elem cut-list__dropdown"></div>')
-                  .find(".cut-list__dropdown")
-                  .append('<div class="cut-list__drop"></div>')
-                  .find(".cut-list__drop")
-                  .append('<div class="cut-list__drop-toggle">' + options.moreBtnTitle + '</div>')
-                  .append('<div class="cut-list__more"><div class="cut-list__more-content"></div></div>');
-          }
-
-          obj.addClass("cut-list").children().each(function(index) {
-              $(this).attr("data-index", index).addClass("cut-list__elem");
-          });
-
-          limit = obj.find(".cut-list__elem").length;
-          index = limit - 1;
-
-          if (obj.find(options.alwaysVisibleElem).length > 1)
-              console.log("Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.");
-
-          alwaysVisibleIndex = obj.find(options.alwaysVisibleElem + ':first').index();
-
-          create(obj);
-
-          if (options.showMoreOnHover) {
-              obj.find(".cut-list__drop").hover(
-              function(){
-                  $(this).parents(".cut-list__dropdown").addClass("is-show");
-                  showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"), obj);
-              },
-              function(){
-                  options.onBeforeClose(obj)
-                  $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-                  options.onClose(obj)
-              });
-          }
-          else {
-              obj.find(".cut-list__drop-toggle").on("click", function(){
-                  if ($(this).parents(".cut-list__dropdown").is(".is-show")){
-                      $(this).parents(".cut-list__dropdown").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-                  }
-                  else {
-                      $(this).parents(".cut-list__dropdown").addClass("is-show");
-                      showMore($(this).parents(".cut-list__dropdown").find(".cut-list__more"), obj);
-                  }
-              });
-
-              $(document).on("click", function(event) {
-                  if ($(event.target).closest(".cut-list__dropdown").length)
-                      return;
-
-                  options.onBeforeClose(obj)
-                  $(".cut-list__dropdown.is-show").removeClass("is-show").find(".cut-list__more").hide().removeClass("is-top is-left");
-                  options.onClose(obj)
-              });
-          }
-
-          $(window).on('resize', resizeHandle.bind(this));
-      }
-
-      function resizeHandle() {
-          clearTimeout(resizeTimeout);
-          resizeTimeout = setTimeout(function(){reset($this)}, options.risezeDelay);
-      }
-
-      function reset(obj) {
-          position = limit;
-
-          $.when(backToStartingPlace(obj)).done(function() {
-              create(obj);
-          });
-      }
-
-      function backToStartingPlace(obj) {
-          var more_elems = obj.find(".cut-list__more .cut-list__elem");
-
-          more_elems.each(function() {
-              var elem_index = $(this).data("index");
-
-              if (elem_index == 0)
-                  $(this).prependTo(obj);
-              else
-                  $(this).insertAfter( obj.find('.cut-list__elem[data-index="' + (elem_index - 1) + '"]'));
-          });
-      }
-
-      function create(obj) {
-          areaWidth = obj.innerWidth();
-          listWidth = obj.find(".cut-list__dropdown").outerWidth(true);
-
-          var find_elems = '.cut-list__elem:not(".cut-list__dropdown")';
-
-          if (alwaysVisibleIndex != -1) {
-              listWidth += obj.find(options.alwaysVisibleElem + ':first').outerWidth(true);
-              find_elems = '.cut-list__elem:not(".cut-list__dropdown,' + options.alwaysVisibleElem + ':first")';
-          }
-
-          obj.find(find_elems).each(function(index) {
-              listWidth += $(this).outerWidth(true);
-
-              if (listWidth >= areaWidth) {
-                  if (alwaysVisibleIndex != -1) {
-                      if (index > alwaysVisibleIndex)
-                          position = index + 1; // так как alwaysVisibleIndex не участвует тут и его ширина прибавлена отдельно
-                      else
-                          position = index;
-                  }
-                  else
-                      position = index;
-
-                  move(obj, position);
-                  obj.addClass("with-more-items").find(".cut-list__dropdown").show();
-
-                  return false;
-              }
-              else {
-                  obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
-              }
-          });
-      }
-
-      function move(obj, position) {
-          var find_elems = '.cut-list__elem:not(".cut-list__dropdown")';
-
-          if (alwaysVisibleIndex != -1)
-              find_elems = '.cut-list__elem:not(".cut-list__dropdown,' + options.alwaysVisibleElem + ':first")';
-
-          for (x = position; x <= limit; x++) {
-              obj.find(find_elems + '[data-index="' + x + '"]').appendTo(obj.find(".cut-list__more-content"));
-          }
-
-          /* Если остался видимым 1 элемент и он является alwaysVisibleElem тогда скрываем его */
-          if (alwaysVisibleIndex != -1) {
-              if (obj.find(".cut-list__elem:first").is(options.alwaysVisibleElem)) {
-                  areaWidth = obj.innerWidth();
-                  listWidth = obj.find(".cut-list__dropdown").outerWidth(true) + obj.find(options.alwaysVisibleElem + ':first').outerWidth(true);
-
-                  if (listWidth >= areaWidth) {
-                      obj.find('.cut-list__elem:not(".cut-list__dropdown")[data-index="' + obj.find(options.alwaysVisibleElem + ':first').data("index") + '"]').appendTo(obj.find(".cut-list__more-content"));
-                  }
-              }
-          }
-      }
-
-      function showMore(moreBlock, obj){
-          var document_height = $(document).outerHeight(true);
-
-          moreBlock.css("visibility", "hidden").show();
-          options.onBeforeCalc(obj);
-
-          if ((moreBlock.offset().top + moreBlock.innerHeight()) > document_height)
-              moreBlock.addClass("is-top");
-
-          if (moreBlock.offset().left < 0)
-              moreBlock.addClass("is-left");
-
-          options.onBeforeOpen(obj);
-          moreBlock.css("visibility", "visible");
-          options.onOpen(obj);
-      }
-
-      InsalesCutList.prototype.setup = function() {
-          setup($this);
-      };
-
-      InsalesCutList.prototype.destroy = function() {
-          $this.html($clone.html());
-          $(window).off('resize', resizeHandle);
-      };
-  };
-
-  // Определение jQuery плагина
   $.fn.cutList = function(options) {
-      return this.each(function() {
-          new InsalesCutList(this, options);
-      });
+    return this.each(function() {
+      new InsalesCutList(this, options);
+    });
   };
 
-  // Экспорт класса в глобальную область видимости
   window.InsalesCutList = InsalesCutList;
 })(jQuery, window);
