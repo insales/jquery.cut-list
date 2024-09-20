@@ -39,12 +39,13 @@
 
       if (isBelowMinWidth && this.initialized) {
         this.destroy();
+      }
+
+      if (isBelowMinWidth) {
         return;
       }
 
-      if (!isBelowMinWidth && !this.initialized) {
-        this.init();
-      }
+      this.init();
     }
 
     updateDocumentClickHandler() {
