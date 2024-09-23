@@ -56,7 +56,7 @@ new InsalesCutList($(".cut-list"), {
 
 ```javascript
 new InsalesCutList($(".cut-list"), {
-  moreBtnTitle: '<span class="icon icon-ellipsis"></span>',
+  moreBtnTitle: '<span class="icon icon-ellipsis-h"></span>',
   alwaysVisibleElem: '.is-current',
   showMoreOnHover: true,
   minWidth: 768 // Минимальная ширина экрана для инициализации

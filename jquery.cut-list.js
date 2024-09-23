@@ -9,7 +9,7 @@
     onBeforeClose: function() {},
     onClose: function() {},
     resizeDelay: 50,
-    minWidth: null // настройка для минимальной ширины экрана
+    minWidth: null
   };
 
   const WINDOW_RESIZE_DEBOUNCE_DELAY = 300;
@@ -20,9 +20,6 @@
       this.options = $.extend({}, defaults, options);
       this.resizeTimeoutObserver = null;
       this.resizeTimeoutWindow = null;
-      this.initState = $(elements).map((index, element) => {
-        return $(element).clone(true, true);
-      });
       this.observers = [];
       this.setupObserversInited = false;
       this.initialized = false;
@@ -56,8 +53,8 @@
     }
 
     updateDocumentClickHandler() {
-      $(document).off("click", this.documentClickHandler);
-      $(document).on("click", this.documentClickHandler.bind(this));
+      $(document).off("click.cutList");
+      $(document).on("click.cutList", this.documentClickHandler.bind(this));
     }
 
     documentClickHandler(event) {
@@ -78,9 +75,9 @@
       }
 
       this.elements.each((index, element) => {
-        $(element).addClass("cut-list-ready");
-        const $this = $(element);
-        this.setup($this);
+        const $element = $(element);
+        $element.addClass("cut-list-ready");
+        this.setup($element);
       });
 
       this.initialized = true;
@@ -94,7 +91,7 @@
         this.createDropdownElements(obj);
       }
 
-      obj.addClass("cut-list").children().each(function(index) {
+      obj.addClass("cut-list").children().not(".cut-list__dropdown").each(function(index) {
         $(this).attr("data-index", index).addClass("cut-list__elem");
       });
 
@@ -102,7 +99,7 @@
       let alwaysVisibleIndex = obj.find(this.options.alwaysVisibleElem + ':first').index();
 
       if (obj.find(this.options.alwaysVisibleElem).length > 1) {
-        console.log("Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.");
+        console.warn("Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.");
       }
 
       this.create(obj, alwaysVisibleIndex, limit);
@@ -128,7 +125,7 @@
     }
 
     addHoverHandlers(obj) {
-      obj.find(".cut-list__drop").hover(
+      obj.find(".cut-list__drop").off("mouseenter mouseleave").hover(
         () => {
           obj.find(".cut-list__dropdown").addClass("is-show");
           this.showMore(obj.find(".cut-list__dropdown .cut-list__more"), obj);
@@ -143,9 +140,9 @@
     }
 
     addClickHandlers(obj) {
-      obj.find(".cut-list__drop-toggle").on("click", () => {
+      obj.find(".cut-list__drop-toggle").off("click.cutList").on("click.cutList", () => {
         const dropdown = obj.find(".cut-list__dropdown");
-        const isShow = dropdown.toggleClass("is-show");
+        const isShow = dropdown.toggleClass("is-show").hasClass("is-show");
         if (isShow) {
           this.showMore(dropdown.find(".cut-list__more"), obj);
         } else {
@@ -169,13 +166,13 @@
           }
           this.setupObserversInited = true;
         });
-        observer.observe($(element).get(0));
+        observer.observe(element);
         this.observers.push(observer);
       });
     }
 
     setupWindowResizeHandler() {
-      $(window).on('resize', this.debouncedHandleResize.bind(this));
+      $(window).on('resize.cutList', this.debouncedHandleResize.bind(this));
     }
 
     debouncedHandleResize() {
@@ -190,31 +187,45 @@
       this.observers = [];
     }
 
-    replaceElements(callback = () => {}) {
-      this.elements.each((index, element) => {
-        const $element = $(element);
-        const cloneContent = this.initState[index].clone(true).contents();
-        $element.empty().append(cloneContent);
-        callback($element);
-      });
-    }
-
     redrawList() {
       if (this.initialized) {
-        this.replaceElements(cloneElement => {
-          this.setup(cloneElement);
+        this.elements.each((index, element) => {
+          const $element = $(element);
+          const $dropdown = $element.find('.cut-list__dropdown');
+          const $moreContent = $dropdown.find('.cut-list__more-content');
+
+          // Перемещаем элементы из dropdown наверх
+          $moreContent.children('.cut-list__elem').each(function() {
+            $(this).detach().insertBefore($dropdown);
+          });
+
+          // Удаляем классы и атрибуты у всех элементов списка
+          $element.children().not('.cut-list__dropdown').removeClass("cut-list__elem").removeAttr("data-index");
+
+          // Сбрасываем состояние, вызывая setup заново
+          this.setup($element);
         });
       }
     }
 
     destroy() {
       this.removeObservers();
-      $(document).off("click", this.documentClickHandler);
-      this.replaceElements(cloneElement => {
-        cloneElement.removeClass("cut-list cut-list-ready with-more-items");
-        cloneElement.find(".cut-list__dropdown").remove();
-        cloneElement.children().removeClass("cut-list__elem").removeAttr("data-index");
+      $(document).off("click.cutList");
+
+      this.elements.each((index, element) => {
+        const $element = $(element);
+        const $dropdown = $element.find('.cut-list__dropdown');
+        const $moreContent = $dropdown.find('.cut-list__more-content');
+
+        // Перемещаем элементы из dropdown наверх
+        $moreContent.children('.cut-list__elem').each(function() {
+          $(this).detach().insertBefore($dropdown);
+        });
+
+        // Удаляем классы и атрибуты у всех элементов списка
+        $element.children().not('.cut-list__dropdown').removeClass("cut-list__elem").removeAttr("data-index");
       });
+
       this.initialized = false;
       this.destroyed = true;
     }
@@ -230,13 +241,13 @@
       }
 
       const elements = obj.find(findElemsSelector);
-      const shouldShowMoreItemsCache = obj.find('.cut-list__more-content .cut-list__elem').length > 0;
       const shouldShowMoreItems = this.shouldShowMoreItems(elements, listWidth, areaWidth, alwaysVisibleIndex);
 
-      if (shouldShowMoreItems || shouldShowMoreItemsCache) {
+      if (shouldShowMoreItems) {
         this.move(obj, this.position, limit);
         obj.addClass("with-more-items").find(".cut-list__dropdown").show();
       } else {
+        obj.find(".cut-list__more-content .cut-list__elem").insertBefore(obj.find(".cut-list__dropdown"));
         obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
       }
     }
@@ -284,7 +295,7 @@
     }
 
     handleRemainingAlwaysVisibleElement(obj) {
-      const areaWidth = obj.innerWidth();
+      const areaWidth = obj.width();
       const firstElement = obj.find(".cut-list__elem:first");
       const isFirstElementAlwaysVisible = firstElement.is(this.options.alwaysVisibleElem);
 
@@ -314,21 +325,14 @@
       moreBlock.css("visibility", "hidden").show();
       this.options.onBeforeCalc(obj);
 
-      // Вычисляем свободное пространство ниже триггерного объекта
       const spaceBelow = documentHeight - triggerBottom;
-      // Вычисляем свободное пространство выше триггерного объекта
       const spaceAbove = obj.offset().top - scrollTop;
-      // Вычисляем видимое пространство ниже триггерного объекта
       const visibleSpaceBelow = windowHeight - (triggerBottom - scrollTop);
 
-      // Проверяем, помещается ли блок ниже триггерного объекта
       const fitsBelow = spaceBelow >= moreBlockHeight;
-      // Проверяем, помещается ли блок выше триггерного объекта
       const fitsAbove = spaceAbove >= moreBlockHeight;
-      // Проверяем, помещается ли блок в видимой области ниже триггерного объекта
       const visiblyFitsBelow = visibleSpaceBelow >= moreBlockHeight;
 
-      // Определяем позицию блока (сверху или снизу)
       moreBlock.toggleClass("is-top", !visiblyFitsBelow && fitsAbove || !fitsBelow && fitsAbove);
       moreBlock.toggleClass("is-left", moreBlock.offset().left < 0);
 
@@ -346,8 +350,8 @@
     });
   };
 
-  $.fn.cutList.setup = function(elments, options = {}) {
-    return $(elments).each(function() {
+  $.fn.cutList.setup = function(elements, options = {}) {
+    return $(elements).each(function() {
       const instance = $.data(this, 'InsalesCutList');
       if (instance) {
         instance.init();
@@ -357,8 +361,8 @@
     });
   };
 
-  $.fn.cutList.destroy = function(elments) {
-    return $(elments).each(function() {
+  $.fn.cutList.destroy = function(elements) {
+    return $(elements).each(function() {
       const instance = $.data(this, 'InsalesCutList');
       if (instance) {
         instance.destroy();
