@@ -20,9 +20,13 @@
       this.options = $.extend({}, defaults, options);
       this.resizeTimeoutObserver = null;
       this.resizeTimeoutWindow = null;
-      this.initState = this.elements.clone(true);
+      this.initState = $(elements).map((index, element) => {
+        return $(element).clone(true, true);
+      });
       this.observers = [];
+      this.setupObserversInited = false;
       this.initialized = false;
+      this.destroyed = false;
 
       if (this.options.minWidth && this.options.minWidth > 0) {
         this.checkScreenWidth();
@@ -30,7 +34,6 @@
       } else {
         this.init();
       }
-      this.setupObservers();
     }
 
     checkScreenWidth() {
@@ -45,7 +48,11 @@
         return;
       }
 
-      this.init();
+      if (!isBelowMinWidth && !this.initialized) {
+        this.init();
+      } else if (!isBelowMinWidth) {
+        this.redrawList();
+      }
     }
 
     updateDocumentClickHandler() {
@@ -66,6 +73,10 @@
     }
 
     init() {
+      if (this.initialized) {
+        this.destroy();
+      }
+
       this.elements.each((index, element) => {
         $(element).addClass("cut-list-ready");
         const $this = $(element);
@@ -73,7 +84,9 @@
       });
 
       this.initialized = true;
+      this.destroyed = false;
       this.updateDocumentClickHandler();
+      this.setupObservers();
     }
 
     setup(obj) {
@@ -146,10 +159,17 @@
 
       this.elements.each((index, element) => {
         const observer = new ResizeObserver(() => {
-          clearTimeout(this.resizeTimeoutObserver);
-          this.resizeTimeoutObserver = setTimeout(() => this.redrawList(), this.options.resizeDelay);
+          if (this.setupObserversInited) {
+            clearTimeout(this.resizeTimeoutObserver);
+            this.resizeTimeoutObserver = setTimeout(() => {
+              if (!this.destroyed) {
+                this.redrawList();
+              }
+            }, this.options.resizeDelay);
+          }
+          this.setupObserversInited = true;
         });
-        observer.observe(element);
+        observer.observe($(element).get(0));
         this.observers.push(observer);
       });
     }
@@ -170,12 +190,19 @@
       this.observers = [];
     }
 
+    replaceElements(callback = () => {}) {
+      this.elements.each((index, element) => {
+        const $element = $(element);
+        const cloneContent = this.initState[index].clone(true).contents();
+        $element.empty().append(cloneContent);
+        callback($element);
+      });
+    }
+
     redrawList() {
       if (this.initialized) {
-        this.elements.each((index, element) => {
-          const $element = $(element);
-          $element.html(this.initState.eq(index).html());
-          this.setup($element);
+        this.replaceElements(cloneElement => {
+          this.setup(cloneElement);
         });
       }
     }
@@ -183,11 +210,13 @@
     destroy() {
       this.removeObservers();
       $(document).off("click", this.documentClickHandler);
-      this.elements.each((index, element) => {
-        $(element).addClass("cut-list-ready");
-        $(element).html(this.initState.eq(index).html());
+      this.replaceElements(cloneElement => {
+        cloneElement.removeClass("cut-list cut-list-ready with-more-items");
+        cloneElement.find(".cut-list__dropdown").remove();
+        cloneElement.children().removeClass("cut-list__elem").removeAttr("data-index");
       });
       this.initialized = false;
+      this.destroyed = true;
     }
 
     create(obj, alwaysVisibleIndex, limit) {
@@ -201,9 +230,10 @@
       }
 
       const elements = obj.find(findElemsSelector);
+      const shouldShowMoreItemsCache = obj.find('.cut-list__more-content .cut-list__elem').length > 0;
       const shouldShowMoreItems = this.shouldShowMoreItems(elements, listWidth, areaWidth, alwaysVisibleIndex);
 
-      if (shouldShowMoreItems) {
+      if (shouldShowMoreItems || shouldShowMoreItemsCache) {
         this.move(obj, this.position, limit);
         obj.addClass("with-more-items").find(".cut-list__dropdown").show();
       } else {
