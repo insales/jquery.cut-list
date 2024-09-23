@@ -199,8 +199,10 @@
             $(this).detach().insertBefore($dropdown);
           });
 
+          $dropdown.remove()
+
           // Удаляем классы и атрибуты у всех элементов списка
-          $element.children().not('.cut-list__dropdown').removeClass("cut-list__elem").removeAttr("data-index");
+          $element.children().removeClass("cut-list__elem").removeAttr("data-index");
 
           // Сбрасываем состояние, вызывая setup заново
           this.setup($element);
@@ -222,8 +224,10 @@
           $(this).detach().insertBefore($dropdown);
         });
 
+        $dropdown.remove()
+
         // Удаляем классы и атрибуты у всех элементов списка
-        $element.children().not('.cut-list__dropdown').removeClass("cut-list__elem").removeAttr("data-index");
+        $element.children().removeClass("cut-list__elem").removeAttr("data-index");
       });
 
       this.initialized = false;
