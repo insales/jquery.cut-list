@@ -167,3 +167,114 @@ describe('focus during redraw', () => {
     expect(document.activeElement).toBe(input);
   });
 });
+
+describe('third-party item events', () => {
+  it.each(['before initialization', 'inside the dropdown'])(
+    'preserves native and jQuery handlers registered %s through redraw and destroy',
+    (registration) => {
+      const root = fixture();
+      const item = root.children().last()[0];
+      const link = item.querySelector('a');
+      const nativeItem = vi.fn();
+      const nativeLink = vi.fn((event) => event.preventDefault());
+      const jqueryItem = vi.fn();
+      const jqueryLink = vi.fn();
+      let list;
+      if (registration === 'inside the dropdown') {
+        list = create(root);
+      }
+
+      item.addEventListener('click', nativeItem);
+      link.addEventListener('click', nativeLink);
+      $(item).on('click.widget', jqueryItem);
+      $(link).on('click.widget', jqueryLink).data('widget', { selected: true });
+      list ??= create(root);
+
+      const handlers = [nativeItem, nativeLink, jqueryItem, jqueryLink];
+      let clicks = 0;
+      const checkClick = () => {
+        expect(item.querySelector('a')).toBe(link);
+        expect($(link).data('widget')).toEqual({ selected: true });
+        link.click();
+        clicks++;
+        handlers.forEach((handler) => expect(handler).toHaveBeenCalledTimes(clicks));
+      };
+
+      expect(list.dropdown.content[0].contains(item)).toBe(true);
+      checkClick();
+      for (const width of [200, 100, 100, 200, 100]) {
+        root.width(width);
+        list.redraw();
+        expect(item.parentNode).toBe(width === 200 ? root[0] : list.dropdown.content[0]);
+        checkClick();
+      }
+      list.destroy();
+      expect(item.parentNode).toBe(root[0]);
+      checkClick();
+      list = create(root);
+      expect(list.dropdown.content[0].contains(item)).toBe(true);
+      checkClick();
+
+      $(link).off('.widget');
+      link.removeEventListener('click', nativeLink);
+      link.click();
+      expect(nativeLink).toHaveBeenCalledTimes(clicks);
+      expect(jqueryLink).toHaveBeenCalledTimes(clicks);
+      expect(nativeItem).toHaveBeenCalledTimes(clicks + 1);
+      expect(jqueryItem).toHaveBeenCalledTimes(clicks + 1);
+    },
+  );
+
+  it('keeps bubbling and delegated handlers on the item and list after moving descendants', () => {
+    const root = fixture();
+    const item = root.children().last();
+    const link = item.find('a')[0];
+    const itemHandler = vi.fn();
+    const listHandler = vi.fn();
+    const captureHandler = vi.fn();
+    const directChildHandler = vi.fn();
+    item.on('click.widget', 'a', itemHandler);
+    root.on('click.widget', 'a', listHandler);
+    root.on('click.widget', '> div > a', directChildHandler);
+    root[0].addEventListener('click', captureHandler, true);
+    link.addEventListener('click', (event) => event.preventDefault());
+
+    const list = create(root);
+    link.click();
+    expect(itemHandler).toHaveBeenCalledOnce();
+    expect(listHandler).toHaveBeenCalledOnce();
+    expect(captureHandler).toHaveBeenCalledOnce();
+    expect(directChildHandler).not.toHaveBeenCalled();
+
+    list.destroy();
+    link.click();
+    expect(itemHandler).toHaveBeenCalledTimes(2);
+    expect(listHandler).toHaveBeenCalledTimes(2);
+    expect(captureHandler).toHaveBeenCalledTimes(2);
+    expect(directChildHandler).toHaveBeenCalledOnce();
+  });
+
+  it('does not rearm native once or jQuery one handlers when items move again', () => {
+    const root = fixture();
+    const link = root.children().last().find('a')[0];
+    const nativeHandler = vi.fn();
+    const jqueryHandler = vi.fn();
+    link.addEventListener('click', nativeHandler, { once: true });
+    link.addEventListener('click', (event) => event.preventDefault());
+    $(link).one('click.widget', jqueryHandler);
+    const list = create(root);
+
+    link.click();
+    root.width(200);
+    list.redraw();
+    link.click();
+    root.width(100);
+    list.redraw();
+    link.click();
+    list.destroy();
+    link.click();
+
+    expect(nativeHandler).toHaveBeenCalledOnce();
+    expect(jqueryHandler).toHaveBeenCalledOnce();
+  });
+});
