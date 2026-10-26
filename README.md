@@ -5,7 +5,7 @@ jQuery-плагин, который переносит не помещающие
 
 ## Подключение
 
-Подключите jQuery, `jquery.cut-list.css` и `jquery.cut-list.min.js`.
+Подключите jQuery, `dist/jquery.cut-list.css` и `dist/jquery.cut-list.min.js`.
 
 ```html
 <ul class="js-cut-list">
@@ -127,3 +127,4 @@ npm run test:browser
 
 Изменяйте файлы в `src/`, затем пересобирайте браузерные файлы.
 Сборка сохраняет `jquery.cut-list.js` и `jquery.cut-list.min.js` в папку `dist/`.
+Стили находятся в `dist/jquery.cut-list.css`.

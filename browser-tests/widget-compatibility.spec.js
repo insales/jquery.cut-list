@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import fixtures from './fixtures/widget-styles.json' with { type: 'json' };
 
-const pluginCss = readFileSync(new URL('../jquery.cut-list.css', import.meta.url), 'utf8');
+const pluginCss = readFileSync(new URL('../dist/jquery.cut-list.css', import.meta.url), 'utf8');
 const legacyCss = `.cut-list{display:flex}.cut-list__elem{white-space:nowrap}
 .cut-list__dropdown{position:relative}.cut-list__drop-toggle{cursor:pointer;user-select:none}
 .cut-list__more{position:absolute;top:100%;right:0;min-width:150px;padding:0;margin:0;text-align:left;background-color:#fff;border:1px solid #ccc;z-index:100;display:none}
