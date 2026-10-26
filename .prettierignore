@@ -1,5 +1,5 @@
 package-lock.json
-jquery.cut-list.min.js
+dist/jquery.cut-list.min.js
 coverage/
 playwright-report/
 test-results/

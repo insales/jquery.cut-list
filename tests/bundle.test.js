@@ -13,7 +13,7 @@ afterEach(() => {
 it.each(['jquery.cut-list.js', 'jquery.cut-list.min.js'])(
   '%s works as a standalone browser script',
   (file) => {
-    window.eval(readFileSync(file, 'utf8'));
+    window.eval(readFileSync(`dist/${file}`, 'utf8'));
     const root = $('<div style="width:120px"><div style="width:40px">Item</div></div>').appendTo(
       document.body,
     );

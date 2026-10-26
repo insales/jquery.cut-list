@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
   return {
     publicDir: false,
     build: {
-      outDir: '.',
+      outDir: 'dist',
       emptyOutDir: false,
       target: 'es2015',
       minify: minified ? 'oxc' : false,

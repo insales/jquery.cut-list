@@ -126,3 +126,4 @@ npm run test:browser
 ```
 
 Изменяйте файлы в `src/`, затем пересобирайте браузерные файлы.
+Сборка сохраняет `jquery.cut-list.js` и `jquery.cut-list.min.js` в папку `dist/`.

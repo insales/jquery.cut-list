@@ -2,9 +2,9 @@
   "name": "jquery.cut-list",
   "version": "1.0.0",
   "description": "",
-  "main": "jquery.cut-list.js",
+  "main": "dist/jquery.cut-list.js",
   "scripts": {
-    "build": "vite build && vite build --mode minified && prettier --write jquery.cut-list.js",
+    "build": "vite build && vite build --mode minified && prettier --write dist/jquery.cut-list.js",
     "min": "vite build --mode minified",
     "test": "vitest run",
     "test:watch": "vitest",

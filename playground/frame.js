@@ -4,9 +4,9 @@ window.jQuery = window.$ = $;
 const params = new URLSearchParams(location.search);
 const bundle = params.get('bundle');
 if (bundle === 'minified') {
-  await import('../jquery.cut-list.min.js');
+  await import('../dist/jquery.cut-list.min.js');
 } else if (bundle === 'readable') {
-  await import('../jquery.cut-list.js');
+  await import('../dist/jquery.cut-list.js');
 } else {
   await import('../src/index.js');
 }
