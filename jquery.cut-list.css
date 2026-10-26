@@ -1,27 +1,48 @@
-.cut-list {display:flex;}
-.cut-list__elem {white-space:nowrap;}
-.cut-list__dropdown {position: relative;}
-.cut-list__drop-toggle{cursor: pointer; user-select: none;}
+.cut-list {
+  display: flex;
+  min-width: 0;
+}
+.cut-list > .cut-list__elem {
+  flex: 0 0 auto;
+}
+.cut-list__elem {
+  white-space: nowrap;
+}
+.cut-list__dropdown {
+  position: relative;
+  list-style: none;
+}
+.cut-list__drop-toggle {
+  cursor: pointer;
+  user-select: none;
+}
 .cut-list__more {
-	position: absolute;
-	top: 100%;
-	right: 0;
-	min-width: 150px;
-	padding: 0;
-	margin: 0;
-	text-align: left;
-	background-color: #fff;
-	border: 1px solid #ccc;
-	z-index: 100;
-	display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 150px;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  z-index: 100;
+  display: none;
 }
 
-.cut-list__more.is-top{
-	top: auto;
-	bottom: 100%;
+.cut-list__more.is-top {
+  top: auto;
+  bottom: 100%;
 }
 
-.cut-list__more.is-left{
-	right: auto;
-	left: 0;
+.cut-list__more.is-left {
+  right: auto;
+  left: 0;
+}
+.cut-list--wrap-dropdown .cut-list__more {
+  max-width: calc(100vw - 16px);
+}
+.cut-list--wrap-dropdown .cut-list__more-content > .cut-list__elem {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cut List — пример</title>
+    <link rel="stylesheet" href="/jquery.cut-list.css" />
+    <link rel="stylesheet" href="./frame.css" />
+  </head>
+  <body>
+    <div class="frame-note">Меню магазина <span id="version"></span></div>
+    <div id="stage"></div>
+    <div class="frame-actions">
+      <button id="show-container">Скрыть / показать контейнер</button>
+      <button id="signal-resize">Вызвать .resize()</button>
+      <button id="destroy">Уничтожить</button>
+      <button id="setup">Запустить</button>
+      <button id="add">Добавить пункт</button>
+    </div>
+    <p class="frame-help">
+      Пункты сохраняют свои обработчики при переносе. Нажмите пункт — его имя появится ниже.
+    </p>
+    <output id="clicked" aria-live="polite"></output>
+    <script type="module" src="./frame.js"></script>
+  </body>
+</html>

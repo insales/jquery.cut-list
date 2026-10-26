@@ -1,0 +1,130 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 24px;
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
+  color: #17253b;
+  background: #f8fafc;
+}
+button {
+  font: inherit;
+  cursor: pointer;
+}
+.frame-note {
+  color: #657189;
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+}
+#version {
+  font-size: 12px;
+}
+#stage {
+  width: 100%;
+}
+.header-shell {
+  background: white;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.header-shell.grid,
+.header-shell.nested-grid {
+  display: grid;
+  grid-template-columns: 96px 1fr 76px;
+  align-items: center;
+}
+.header-shell.flex,
+.header-shell.nested-flex {
+  display: flex;
+  align-items: center;
+}
+.header-shell.flex > .demo-list,
+.header-shell.nested-flex > .nav-slot {
+  flex: 1;
+}
+.nav-slot.safe {
+  min-width: 0;
+}
+.brand {
+  padding: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  flex: 0 0 96px;
+}
+.tools {
+  padding: 12px;
+  color: #5f7090;
+  flex: 0 0 76px;
+}
+.demo-list {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.demo-list > li {
+  list-style: none;
+}
+.demo-list a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  padding: 14px 12px;
+}
+.demo-list .is-current > a {
+  color: #365ccc;
+  background: #eef2ff;
+  border-radius: 8px;
+}
+.demo-list .cut-list__drop-toggle {
+  padding: 14px 12px;
+  font-weight: 600;
+}
+.demo-list .cut-list__more {
+  border-radius: 10px;
+  box-shadow: 0 12px 32px #15243b20;
+}
+.demo-list .cut-list__more-content > li {
+  list-style: none;
+}
+.demo-list .cut-list__more a:hover {
+  background: #eef2ff;
+}
+.demo-list .submenu {
+  display: none;
+}
+.frame-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 30px;
+}
+.frame-actions button {
+  padding: 8px 10px;
+  background: white;
+  color: #365079;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+}
+.frame-help {
+  color: #657189;
+  font-size: 12px;
+}
+#clicked {
+  color: #365ccc;
+}
+@media (max-width: 767px) {
+  .mobile-stack > li > a {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .mobile-stack {
+    display: block;
+  }
+}

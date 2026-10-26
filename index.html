@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cut List — Playground</title>
+    <link rel="stylesheet" href="/playground/style.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <a href="/" class="wordmark">CUT LIST<span> / LAB</span></a
+      ><span class="badge">jQuery 3.5.1 · InSales</span>
+    </header>
+    <main>
+      <div class="intro">
+        <p class="eyebrow">ПРОВЕРКА АДАПТИВНОГО МЕНЮ</p>
+        <h1>Место для каждого пункта.</h1>
+        <p>Меняйте ширину, поворачивайте экран и проверяйте меню в разных контейнерах.</p>
+      </div>
+      <div class="workspace">
+        <form id="controls" class="panel">
+          <h2>Контекст</h2>
+          <label
+            >Родитель списка<select name="context">
+              <option value="grid">Grid · список в ячейке 1fr</option>
+              <option value="flex">Flex · между логотипом и корзиной</option>
+              <option value="block">Обычный блок</option>
+              <option value="nested-grid">Grid · через обёртку</option>
+              <option value="nested-flex">Flex · через обёртку</option>
+            </select></label
+          >
+          <label
+            >Проверяемый код<select name="bundle">
+              <option value="source">Исходники</option>
+              <option value="readable">Браузерная сборка</option>
+              <option value="minified">Минифицированная сборка</option>
+            </select></label
+          >
+          <div class="pair">
+            <label>Gap, px<input name="gap" type="number" min="0" max="64" value="12" /></label
+            ><label
+              >Padding, px<input name="padding" type="number" min="0" max="64" value="8"
+            /></label>
+          </div>
+          <label
+            >minWidth<input name="minWidth" type="number" min="0" max="2000" value="767"
+          /></label>
+          <label
+            >Количество списков<select name="count">
+              <option value="1">Один</option>
+              <option value="2">Два независимых списка</option>
+            </select></label
+          >
+          <label class="check"
+            ><input name="priority" type="checkbox" checked />Держать «Коллекции» на виду</label
+          >
+          <label class="check"><input name="hover" type="checkbox" />Открывать по наведению</label>
+          <label class="check"
+            ><input name="safe" type="checkbox" checked />min-width: 0 на обёртке</label
+          >
+          <label class="check"
+            ><input name="hidden" type="checkbox" />Начать со скрытого контейнера</label
+          >
+          <label class="check"><input name="long" type="checkbox" />Очень длинное название</label>
+          <label class="check"><input name="rtl" type="checkbox" />Справа налево (RTL)</label>
+          <label class="check"
+            ><input name="mobileStack" type="checkbox" checked />Вертикальный список до 768
+            px</label
+          >
+          <button type="button" id="reset">Сбросить настройки</button>
+        </form>
+        <section class="preview">
+          <div class="preview-toolbar">
+            <div class="presets">
+              <button data-size="390,844">Телефон</button
+              ><button data-size="820,1180">Планшет</button
+              ><button data-size="960,600" class="selected">Десктоп</button>
+            </div>
+            <button id="rotate">↻ Повернуть</button>
+          </div>
+          <div class="viewport-controls">
+            <label
+              >Ширина экрана
+              <input id="viewport-width" type="range" min="280" max="1440" value="960" /></label
+            ><output id="dimensions">960 × 600</output>
+          </div>
+          <div class="preview-surface">
+            <iframe
+              id="preview"
+              title="Пример меню в отдельном окне"
+              width="960"
+              height="600"
+            ></iframe>
+          </div>
+          <div class="diagnostics">
+            <div>
+              <h2>Состояние меню</h2>
+              <p>Ширина iframe — настоящая ширина окна примера. Поворот меняет обе стороны.</p>
+            </div>
+            <div id="state" aria-live="polite">Загрузка…</div>
+          </div>
+        </section>
+      </div>
+      <p class="footnote">
+        Для вложенного grid/flex у сжимаемой обёртки нужен min-width: 0. Отключите настройку, чтобы
+        воспроизвести переполнение родителя.
+      </p>
+    </main>
+    <script type="module" src="/playground/main.js"></script>
+  </body>
+</html>

@@ -1,378 +1,626 @@
-(function($, window, document) {
-  const defaults = {
+(function () {
+  // src/defaults.js
+  var defaults = {
     moreBtnTitle: 'Еще',
     showMoreOnHover: false,
-    alwaysVisibleElem: undefined,
-    onBeforeCalc: function() {},
-    onBeforeOpen: function() {},
-    onOpen: function() {},
-    onBeforeClose: function() {},
-    onClose: function() {},
+    alwaysVisibleElem: void 0,
+    onBeforeCalc: function () {},
+    onBeforeOpen: function () {},
+    onOpen: function () {},
+    onBeforeClose: function () {},
+    onClose: function () {},
     resizeDelay: 50,
-    minWidth: null
+    minWidth: null,
   };
-
-  const WINDOW_RESIZE_DEBOUNCE_DELAY = 300;
-
-  class InsalesCutList {
-    constructor(elements, options) {
-      this.elements = $(elements);
-      this.options = $.extend({}, defaults, options);
-      this.resizeTimeoutObserver = null;
-      this.resizeTimeoutWindow = null;
-      this.observers = [];
-      this.setupObserversInited = false;
-      this.initialized = false;
+  // src/dropdown-position.js
+  function getDropdownPosition({
+    dropdownHeight,
+    dropdownLeft,
+    triggerTop,
+    triggerBottom,
+    scrollTop,
+    viewportHeight,
+    documentHeight,
+  }) {
+    const fitsAbove = triggerTop - scrollTop >= dropdownHeight;
+    const fitsInViewportBelow = viewportHeight - (triggerBottom - scrollTop) >= dropdownHeight;
+    const fitsInDocumentBelow = documentHeight - triggerBottom >= dropdownHeight;
+    return {
+      above: fitsAbove && (!fitsInViewportBelow || !fitsInDocumentBelow),
+      alignLeft: dropdownLeft < 0,
+    };
+  }
+  // src/dropdown.js
+  function createElement($, title, tagName) {
+    const element = $(`<${tagName} class="cut-list__elem cut-list__dropdown"></${tagName}>`).hide();
+    const drop = $('<div class="cut-list__drop"></div>').appendTo(element);
+    $('<div class="cut-list__drop-toggle" role="button" tabindex="0" aria-expanded="false"></div>')
+      .html(title)
+      .appendTo(drop);
+    $('<div class="cut-list__more"><div class="cut-list__more-content"></div></div>').appendTo(
+      drop,
+    );
+    return element;
+  }
+  var Dropdown = class {
+    constructor($, list, options, namespace) {
+      this.$ = $;
+      this.list = list;
+      this.options = options;
+      this.namespace = namespace;
+      this.phase = 'closed';
+      this.operation = 0;
+      this.destroying = false;
       this.destroyed = false;
-
-      if (this.options.minWidth && this.options.minWidth > 0) {
-        this.checkScreenWidth();
-        this.setupWindowResizeHandler();
-      } else {
-        this.init();
+      this.document = list[0].ownerDocument;
+      this.window = this.document.defaultView;
+      const tagName = /^(UL|OL)$/.test(list[0].tagName) ? 'li' : 'div';
+      this.element = createElement($, options.moreBtnTitle, tagName);
+      this.drop = this.element.find('.cut-list__drop');
+      this.toggle = this.element.find('.cut-list__drop-toggle');
+      this.panel = this.element.find('.cut-list__more');
+      this.content = this.element.find('.cut-list__more-content');
+    }
+    get isOpen() {
+      return this.element.hasClass('is-show');
+    }
+    mount() {
+      if (this.element.parent()[0] === this.list[0]) return;
+      this.content.empty();
+      this.list.append(this.element);
+      this.bindEvents();
+    }
+    setExpanded(expanded) {
+      this.element.toggleClass('is-show', expanded);
+      this.toggle.attr('aria-expanded', String(expanded));
+    }
+    open() {
+      if (this.destroyed || this.destroying || this.phase === 'opening' || this.isOpen) return;
+      const operation = ++this.operation;
+      this.phase = 'opening';
+      this.setExpanded(true);
+      this.panel.removeClass('is-top is-left').css('visibility', 'hidden').show();
+      this.options.onBeforeCalc(this.list);
+      if (!this.isOpening(operation)) return;
+      this.updatePosition();
+      this.options.onBeforeOpen(this.list);
+      if (!this.isOpening(operation)) return;
+      this.panel.css('visibility', 'visible');
+      this.phase = 'open';
+      this.options.onOpen(this.list);
+    }
+    isOpening(operation) {
+      return !this.destroyed && this.operation === operation && this.phase === 'opening';
+    }
+    close() {
+      if (this.destroyed || this.phase === 'closing' || !this.isOpen) return;
+      this.operation++;
+      this.phase = 'closing';
+      this.options.onBeforeClose(this.list);
+      if (this.phase === 'closing') this.finishClose();
+    }
+    finishClose() {
+      this.setExpanded(false);
+      this.panel.hide().removeClass('is-top is-left');
+      this.phase = 'closed';
+      this.options.onClose(this.list);
+    }
+    toggleOpen() {
+      if (this.isOpen) this.close();
+      else this.open();
+    }
+    updatePosition() {
+      const trigger = this.toggle[0].getBoundingClientRect();
+      const panel = this.panel[0].getBoundingClientRect();
+      const position = getDropdownPosition({
+        dropdownHeight: panel.height,
+        dropdownLeft: panel.left,
+        triggerTop: trigger.top,
+        triggerBottom: trigger.bottom,
+        scrollTop: 0,
+        viewportHeight: this.$(this.window).height(),
+        documentHeight: this.$(this.document).height() - this.$(this.window).scrollTop(),
+      });
+      this.panel.toggleClass('is-top', position.above);
+      this.panel.toggleClass('is-left', position.alignLeft);
+    }
+    bindEvents() {
+      this.drop.add(this.toggle).off(this.namespace);
+      this.toggle
+        .on(`click${this.namespace}`, () => this.toggleOpen())
+        .on(`keydown${this.namespace}`, (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            this.toggleOpen();
+          }
+        });
+      if (this.options.showMoreOnHover)
+        this.drop
+          .on(`mouseenter${this.namespace}`, () => {
+            if (this.canHover()) this.open();
+          })
+          .on(`mouseleave${this.namespace}`, () => {
+            if (this.canHover()) this.close();
+          });
+    }
+    canHover() {
+      return !this.window.matchMedia || this.window.matchMedia('(hover: hover)').matches;
+    }
+    closeAndFocus() {
+      if (this.isOpen) {
+        this.close();
+        this.toggle.trigger('focus');
       }
     }
-
-    checkScreenWidth() {
-      const currentWidth = $(window).width();
-      const isBelowMinWidth = (this.options.minWidth && this.options.minWidth > 0) ? currentWidth <= this.options.minWidth : false;
-
-      if (isBelowMinWidth && this.initialized) {
-        this.destroy();
-      }
-
-      if (isBelowMinWidth) {
+    contains(target) {
+      return this.element[0].contains(target);
+    }
+    destroy() {
+      if (this.destroyed || this.destroying) return;
+      this.destroying = true;
+      if (this.phase === 'closing') this.finishClose();
+      else this.close();
+      this.operation++;
+      this.destroyed = true;
+      this.phase = 'destroyed';
+      this.element.find('*').addBack().off(this.namespace);
+      this.element.remove();
+    }
+  };
+  // src/layout.js
+  function getHiddenIndices(
+    widths,
+    availableWidth,
+    dropdownWidth,
+    alwaysVisibleIndex = -1,
+    gap = 0,
+  ) {
+    if (
+      widths.reduce((total, width) => total + width, 0) + Math.max(0, widths.length - 1) * gap <=
+      availableWidth
+    )
+      return [];
+    const keepPriority =
+      alwaysVisibleIndex >= 0 && widths[alwaysVisibleIndex] + dropdownWidth + gap <= availableWidth;
+    let usedWidth = dropdownWidth + (keepPriority ? widths[alwaysVisibleIndex] + gap : 0);
+    let overflow = false;
+    const hiddenIndices = [];
+    for (const [index, width] of widths.entries()) {
+      if (keepPriority && index === alwaysVisibleIndex) continue;
+      usedWidth += width + gap;
+      overflow = overflow || usedWidth > availableWidth;
+      if (overflow) hiddenIndices.push(index);
+    }
+    return hiddenIndices;
+  }
+  // src/measurements.js
+  function getColumnGap($, element) {
+    const value = element.css('column-gap');
+    if (!value || value === 'normal') return 0;
+    if (value.endsWith('px')) return parseFloat(value) || 0;
+    if (value.endsWith('%')) return ((parseFloat(value) || 0) * element.width()) / 100;
+    const probe = $('<div></div>')
+      .css({
+        width: value,
+        flex: '0 0 auto',
+        height: 0,
+        minWidth: 0,
+        maxWidth: 'none',
+        padding: 0,
+        margin: 0,
+        border: 0,
+        visibility: 'hidden',
+      })
+      .appendTo(element);
+    const width = probe.width();
+    probe.remove();
+    return width;
+  }
+  // src/list.js
+  var LIST_CLASSES = ['cut-list', 'cut-list-ready', 'with-more-items'];
+  var itemOwners = /* @__PURE__ */ new WeakMap();
+  var CutList = class {
+    constructor($, element, options, namespace) {
+      this.$ = $;
+      this.element = $(element);
+      this.options = options;
+      this.destroying = false;
+      this.destroyed = false;
+      this.slots = /* @__PURE__ */ new Map();
+      this.attributes = /* @__PURE__ */ new Map();
+      this.originalClasses = LIST_CLASSES.filter((name) => this.element.hasClass(name));
+      this.dropdown = new Dropdown($, this.element, options, namespace);
+      this.element.addClass('cut-list cut-list-ready');
+      this.dropdown.mount();
+      this.redraw();
+    }
+    redraw() {
+      if (this.destroyed || this.destroying) return;
+      const focused = this.element[0].ownerDocument.activeElement;
+      const hadFocus = this.element[0].contains(focused);
+      this.dropdown.close();
+      if (this.destroyed || this.destroying) return;
+      this.restoreItems();
+      this.dropdown.mount();
+      const items = this.prepareItems();
+      if (!this.isHorizontal()) {
+        this.setOverflow(false);
+        this.restoreFocus(focused, hadFocus);
         return;
       }
-
-      if (!isBelowMinWidth && !this.initialized) {
-        this.init();
-      } else if (!isBelowMinWidth) {
-        this.redrawList();
-      }
+      this.dropdown.element.show();
+      const visibleItems = items.filter((item) => this.$(item).css('display') !== 'none');
+      const hiddenIndices = getHiddenIndices(
+        visibleItems.map((item) => this.$(item).outerWidth(true)),
+        this.element.width(),
+        this.dropdown.element.outerWidth(true),
+        this.getPriorityIndex(visibleItems),
+        getColumnGap(this.$, this.element),
+      );
+      hiddenIndices.forEach((index) => this.moveToDropdown(visibleItems[index]));
+      this.setOverflow(hiddenIndices.length > 0);
+      this.restoreFocus(focused, hadFocus);
     }
-
-    updateDocumentClickHandler() {
-      $(document).off("click.cutList");
-      $(document).on("click.cutList", this.documentClickHandler.bind(this));
-    }
-
-    documentClickHandler(event) {
-      if (!$(event.target).closest(".cut-list__dropdown").length) {
-        this.options.onBeforeClose(this.elements);
-        $(".cut-list__dropdown.is-show")
-          .removeClass("is-show")
-          .find(".cut-list__more")
-          .hide()
-          .removeClass("is-top is-left");
-        this.options.onClose(this.elements);
-      }
-    }
-
-    init() {
-      if (this.initialized) {
-        this.destroy();
-      }
-
-      this.elements.each((index, element) => {
-        const $element = $(element);
-        $element.addClass("cut-list-ready");
-        this.setup($element);
-      });
-
-      this.initialized = true;
-      this.destroyed = false;
-      this.updateDocumentClickHandler();
-      this.setupObservers();
-    }
-
-    setup(obj) {
-      if (!obj.find(".cut-list__dropdown").length) {
-        this.createDropdownElements(obj);
-      }
-
-      obj.addClass("cut-list").children().not(".cut-list__dropdown").each(function(index) {
-        $(this).attr("data-index", index).addClass("cut-list__elem");
-      });
-
-      let limit = obj.find(".cut-list__elem").length;
-      let alwaysVisibleIndex = obj.find(this.options.alwaysVisibleElem + ':first').index();
-
-      if (obj.find(this.options.alwaysVisibleElem).length > 1) {
-        console.warn("Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.");
-      }
-
-      this.create(obj, alwaysVisibleIndex, limit);
-      this.setEventHandlers(obj);
-    }
-
-    createDropdownElements(obj) {
-      obj.append('<div style="display:none" class="cut-list__elem cut-list__dropdown"></div>')
-      .find(".cut-list__dropdown")
-      .append('<div class="cut-list__drop"></div>')
-      .find(".cut-list__drop")
-      .append(`<div class="cut-list__drop-toggle">${this.options.moreBtnTitle}</div>`)
-      .append('<div class="cut-list__more"><div class="cut-list__more-content"></div></div>');
-    }
-
-    setEventHandlers(obj) {
-      const options = this.options;
-      if (options.showMoreOnHover) {
-        this.addHoverHandlers(obj);
-      } else {
-        this.addClickHandlers(obj);
-      }
-    }
-
-    addHoverHandlers(obj) {
-      obj.find(".cut-list__drop").off("mouseenter mouseleave").hover(
-        () => {
-          obj.find(".cut-list__dropdown").addClass("is-show");
-          this.showMore(obj.find(".cut-list__dropdown .cut-list__more"), obj);
-        },
-        () => {
-          this.options.onBeforeClose(obj);
-          obj.find(".cut-list__dropdown").removeClass("is-show")
-          this.hideMore(obj.find(".cut-list__dropdown").find(".cut-list__more"));
-          this.options.onClose(obj);
-        }
+    isHorizontal() {
+      const display = this.element.css('display');
+      const direction = this.element.css('flex-direction');
+      return (
+        ['flex', 'inline-flex'].includes(display) &&
+        !direction.startsWith('column') &&
+        this.element.width() > 0
       );
     }
-
-    addClickHandlers(obj) {
-      obj.find(".cut-list__drop-toggle").off("click.cutList").on("click.cutList", () => {
-        const dropdown = obj.find(".cut-list__dropdown");
-        const isShow = dropdown.toggleClass("is-show").hasClass("is-show");
-        if (isShow) {
-          this.showMore(dropdown.find(".cut-list__more"), obj);
-        } else {
-          this.hideMore(dropdown.find(".cut-list__more"));
+    prepareItems() {
+      const items = this.element.children().not(this.dropdown.element).toArray();
+      const currentItems = new Set(items);
+      this.attributes.forEach((attributes, item) => {
+        if (!currentItems.has(item)) this.releaseItem(item);
+      });
+      items.forEach((item, index) => {
+        if (!this.attributes.has(item)) {
+          var _itemOwners$get;
+          (_itemOwners$get = itemOwners.get(item)) === null ||
+            _itemOwners$get === void 0 ||
+            _itemOwners$get.releaseItem(item);
+          this.attributes.set(item, {
+            index: item.getAttribute('data-index'),
+            hadItemClass: this.$(item).hasClass('cut-list__elem'),
+          });
+          itemOwners.set(item, this);
         }
+        this.$(item).addClass('cut-list__elem').attr('data-index', index);
+      });
+      return items;
+    }
+    getPriorityIndex(items) {
+      if (!this.options.alwaysVisibleElem) return -1;
+      const matches = this.element
+        .find(this.options.alwaysVisibleElem)
+        .not(this.dropdown.element.find('*'));
+      if (matches.length > 1)
+        console.warn(
+          'Внимание! Вами назначено несколько alwaysVisibleElem, будет использоваться только первый.',
+        );
+      return items.findIndex((item) => item === matches[0] || this.$.contains(item, matches[0]));
+    }
+    moveToDropdown(item) {
+      const slot = item.ownerDocument.createComment('cut-list item');
+      item.before(slot);
+      this.slots.set(item, slot);
+      this.$(item).appendTo(this.dropdown.content);
+    }
+    restoreItems() {
+      this.slots.forEach((slot, item) => {
+        if (item.parentNode === this.dropdown.content[0] && slot.parentNode === this.element[0])
+          slot.replaceWith(item);
+        else slot.remove();
+      });
+      this.slots.clear();
+    }
+    setOverflow(overflowing) {
+      this.element.toggleClass('with-more-items', overflowing);
+      this.dropdown.element.toggle(overflowing);
+    }
+    restoreAttributes() {
+      this.attributes.forEach((attributes, item) => this.releaseItem(item));
+    }
+    releaseItem(item) {
+      var _this$slots$get;
+      const attributes = this.attributes.get(item);
+      if (!attributes) return;
+      if (itemOwners.get(item) === this) {
+        this.$(item).toggleClass('cut-list__elem', attributes.hadItemClass);
+        if (attributes.index === null) item.removeAttribute('data-index');
+        else item.setAttribute('data-index', attributes.index);
+        itemOwners.delete(item);
+      }
+      (_this$slots$get = this.slots.get(item)) === null ||
+        _this$slots$get === void 0 ||
+        _this$slots$get.remove();
+      this.slots.delete(item);
+      this.attributes.delete(item);
+    }
+    restoreFocus(focused, hadFocus) {
+      if (!hadFocus || !focused.isConnected || !this.element[0].contains(focused)) return;
+      const target = this.dropdown.content[0].contains(focused) ? this.dropdown.toggle[0] : focused;
+      if (target.ownerDocument.activeElement !== target) target.focus({ preventScroll: true });
+    }
+    destroy() {
+      if (this.destroyed || this.destroying) return;
+      this.destroying = true;
+      const focused = this.element[0].ownerDocument.activeElement;
+      const hadFocus = this.element[0].contains(focused);
+      this.dropdown.close();
+      this.restoreItems();
+      this.restoreAttributes();
+      this.dropdown.destroy();
+      this.element.removeClass(LIST_CLASSES.join(' ')).addClass(this.originalClasses.join(' '));
+      this.restoreFocus(focused, hadFocus);
+      this.destroyed = true;
+    }
+  };
+  // src/resize-controller.js
+  var ResizeController = class {
+    constructor({ $, window, document, elements, namespace, delay, onResize }) {
+      this.$ = $;
+      this.window = window;
+      this.document = document;
+      this.elements = elements;
+      this.namespace = namespace;
+      this.delay = delay;
+      this.onResize = onResize;
+      this.observers = [];
+      this.timers = /* @__PURE__ */ new Map();
+      this.listening = false;
+      this.handleContentResize = () => this.schedule('content', this.delay);
+      this.handleWindowResize = (event) => {
+        if (event.target === this.window) this.schedule('window', 300);
+      };
+    }
+    start() {
+      var _this$document$fonts;
+      if (this.listening) return;
+      this.listening = true;
+      this.$(this.window).on(
+        `resize${this.namespace} orientationchange${this.namespace}`,
+        this.handleWindowResize,
+      );
+      this.bindElements();
+      (_this$document$fonts = this.document.fonts) === null ||
+        _this$document$fonts === void 0 ||
+        _this$document$fonts.addEventListener('loadingdone', this.handleContentResize);
+    }
+    bindElements() {
+      this.elements.on(`resize${this.namespace}`, this.handleContentResize);
+      this.elements.each((index, element) => {
+        element.addEventListener('load', this.handleContentResize, true);
       });
     }
-
-    setupObservers() {
-      this.removeObservers();
-
+    unbindElements() {
+      this.elements.off(`resize${this.namespace}`);
       this.elements.each((index, element) => {
-        const observer = new ResizeObserver(() => {
-          if (this.setupObserversInited) {
-            clearTimeout(this.resizeTimeoutObserver);
-            this.resizeTimeoutObserver = setTimeout(() => {
-              if (!this.destroyed) {
-                this.redrawList();
-              }
-            }, this.options.resizeDelay);
+        element.removeEventListener('load', this.handleContentResize, true);
+      });
+    }
+    observe() {
+      this.unobserve();
+      if (!this.window.ResizeObserver) return;
+      this.elements.each((index, element) => {
+        let previousWidth = this.$(element).width();
+        const observer = new this.window.ResizeObserver(() => {
+          const width = this.$(element).width();
+          if (width !== previousWidth) {
+            previousWidth = width;
+            this.handleContentResize();
           }
-          this.setupObserversInited = true;
         });
         observer.observe(element);
         this.observers.push(observer);
       });
     }
-
-    setupWindowResizeHandler() {
-      $(window).on('resize.cutList', this.debouncedHandleResize.bind(this));
-    }
-
-    debouncedHandleResize() {
-      clearTimeout(this.resizeTimeoutWindow);
-      this.resizeTimeoutWindow = setTimeout(() => {
-        this.checkScreenWidth();
-      }, WINDOW_RESIZE_DEBOUNCE_DELAY);
-    }
-
-    removeObservers() {
-      this.observers.forEach(observer => observer.disconnect());
+    unobserve() {
+      this.observers.forEach((observer) => observer.disconnect());
       this.observers = [];
+      this.cancel('content');
     }
-
-    redrawList() {
-      if (this.initialized) {
-        this.elements.each((index, element) => {
-          const $element = $(element);
-          const $dropdown = $element.find('.cut-list__dropdown');
-          const $moreContent = $dropdown.find('.cut-list__more-content');
-
-          // Перемещаем элементы из dropdown наверх
-          $moreContent.children('.cut-list__elem').each(function() {
-            $(this).detach().insertBefore($dropdown);
-          });
-
-          $dropdown.remove()
-
-          // Удаляем классы и атрибуты у всех элементов списка
-          $element.children().removeClass("cut-list__elem").removeAttr("data-index");
-
-          // Сбрасываем состояние, вызывая setup заново
-          this.setup($element);
+    setElements(elements) {
+      const observing = this.observers.length > 0;
+      this.unbindElements();
+      this.unobserve();
+      this.elements = elements;
+      if (this.listening) this.bindElements();
+      if (observing) this.observe();
+    }
+    schedule(key, delay) {
+      if (!this.listening) return;
+      this.cancel(key);
+      this.timers.set(
+        key,
+        setTimeout(() => {
+          this.timers.delete(key);
+          this.onResize();
+        }, delay),
+      );
+    }
+    cancel(key) {
+      clearTimeout(this.timers.get(key));
+      this.timers.delete(key);
+    }
+    stop() {
+      var _this$document$fonts2;
+      this.listening = false;
+      this.$(this.window).off(this.namespace);
+      this.unbindElements();
+      (_this$document$fonts2 = this.document.fonts) === null ||
+        _this$document$fonts2 === void 0 ||
+        _this$document$fonts2.removeEventListener('loadingdone', this.handleContentResize);
+      this.unobserve();
+      this.cancel('window');
+    }
+  };
+  // src/insales-cut-list.js
+  var DATA_KEY = 'InsalesCutList';
+  var nextInstanceId = 0;
+  function createInsalesCutList($, window, document) {
+    return class InsalesCutList {
+      constructor(elements, options) {
+        this.elements = $([...new Set($(elements).toArray())]);
+        this.suspendedElements = /* @__PURE__ */ new Set();
+        this.options = $.extend({}, defaults, options);
+        this.namespace = `.cutList${++nextInstanceId}`;
+        this.lists = [];
+        this.initialized = false;
+        this.destroyed = false;
+        this.resize = new ResizeController({
+          $,
+          window,
+          document,
+          elements: this.elements,
+          namespace: this.namespace,
+          delay: this.options.resizeDelay,
+          onResize: () => this.checkScreenWidth(),
         });
+        this.handleDocumentClick = (event) => this.closeOutsideDropdowns(event.target);
+        this.handleDocumentKeydown = (event) => {
+          if (event.key === 'Escape') this.lists.forEach((list) => list.dropdown.closeAndFocus());
+        };
+        this.claimElements();
+        this.checkScreenWidth();
       }
-    }
-
-    destroy() {
-      this.removeObservers();
-      $(document).off("click.cutList");
-
-      this.elements.each((index, element) => {
-        const $element = $(element);
-        const $dropdown = $element.find('.cut-list__dropdown');
-        const $moreContent = $dropdown.find('.cut-list__more-content');
-
-        // Перемещаем элементы из dropdown наверх
-        $moreContent.children('.cut-list__elem').each(function() {
-          $(this).detach().insertBefore($dropdown);
+      claimElements() {
+        new Set(this.elements.toArray().map((element) => $.data(element, DATA_KEY))).forEach(
+          (owner) =>
+            owner === null || owner === void 0 ? void 0 : owner.releaseElements(this.elements),
+        );
+        this.elements.each((index, element) => $.data(element, DATA_KEY, this));
+      }
+      checkScreenWidth() {
+        if (this.destroyed || this.activeElements.length === 0) return;
+        if (this.options.minWidth > 0 && $(window).width() <= this.options.minWidth) {
+          this.teardownLists();
+          this.resize.start();
+        } else if (this.initialized) this.redrawList();
+        else this.initializeActiveLists();
+      }
+      get activeElements() {
+        return this.elements.filter((index, element) => !this.suspendedElements.has(element));
+      }
+      initializeActiveLists() {
+        const existing = new Set(this.lists.map((list) => list.element[0]));
+        this.activeElements.each((index, element) => {
+          if (!existing.has(element))
+            this.lists.push(new CutList($, element, this.options, this.namespace));
         });
-
-        $dropdown.remove()
-
-        // Удаляем классы и атрибуты у всех элементов списка
-        $element.children().removeClass("cut-list__elem").removeAttr("data-index");
-      });
-
-      this.initialized = false;
-      this.destroyed = true;
-    }
-
-    create(obj, alwaysVisibleIndex, limit) {
-      const areaWidth = obj.innerWidth();
-      let listWidth = obj.find(".cut-list__dropdown").outerWidth(true);
-
-      const findElemsSelector = this.getFindElemsSelector(alwaysVisibleIndex);
-
-      if (alwaysVisibleIndex != -1) {
-        listWidth += this.getOuterWidthWithMargin(obj.find(this.options.alwaysVisibleElem + ':first'));
+        this.initialized = this.lists.length > 0;
+        if (!this.initialized) return;
+        $(document)
+          .off(this.namespace)
+          .on(`click${this.namespace}`, this.handleDocumentClick)
+          .on(`keydown${this.namespace}`, this.handleDocumentKeydown);
+        this.resize.start();
+        this.resize.observe();
       }
-
-      const elements = obj.find(findElemsSelector);
-      const shouldShowMoreItems = this.shouldShowMoreItems(elements, listWidth, areaWidth, alwaysVisibleIndex);
-
-      if (shouldShowMoreItems) {
-        this.move(obj, this.position, limit);
-        obj.addClass("with-more-items").find(".cut-list__dropdown").show();
-      } else {
-        obj.find(".cut-list__more-content .cut-list__elem").insertBefore(obj.find(".cut-list__dropdown"));
-        obj.removeClass("with-more-items").find(".cut-list__dropdown").hide();
+      init() {
+        this.teardownLists();
+        this.destroyed = false;
+        this.suspendedElements.clear();
+        this.resize.setElements(this.elements);
+        this.initializeActiveLists();
       }
-    }
-
-    getFindElemsSelector(alwaysVisibleIndex) {
-      return alwaysVisibleIndex === -1
-        ? '.cut-list__elem:not(".cut-list__dropdown")'
-        : `.cut-list__elem:not(".cut-list__dropdown, ${this.options.alwaysVisibleElem}:first")`;
-    }
-
-    shouldShowMoreItems(elements, initialListWidth, areaWidth, alwaysVisibleIndex) {
-      let listWidth = initialListWidth;
-
-      for (let index = 0; index < elements.length; index++) {
-        const element = $(elements[index]);
-        listWidth += this.getOuterWidthWithMargin(element);
-
-        if (listWidth >= areaWidth) {
-          this.position = alwaysVisibleIndex !== -1 && index > alwaysVisibleIndex
-            ? index + 1
-            : index;
-
-          return true;
+      setup() {
+        this.destroyed = false;
+        this.suspendedElements.clear();
+        this.resize.setElements(this.elements);
+        if (
+          this.initialized &&
+          !(this.options.minWidth > 0 && $(window).width() <= this.options.minWidth)
+        )
+          this.initializeActiveLists();
+        this.checkScreenWidth();
+      }
+      setupElements(elements) {
+        this.elements
+          .filter(elements)
+          .each((index, element) => this.suspendedElements.delete(element));
+        if (this.activeElements.length === 0) return;
+        this.destroyed = false;
+        this.resize.setElements(this.activeElements);
+        if (this.options.minWidth > 0 && $(window).width() <= this.options.minWidth) {
+          this.teardownLists();
+          this.resize.start();
+        } else {
+          const selectedLists = this.lists.filter((list) => $(elements).is(list.element));
+          this.initializeActiveLists();
+          selectedLists.forEach((list) => list.redraw());
         }
       }
-      return false;
-    }
-
-    getOuterWidthWithMargin(element) {
-      const marginLeft = parseInt(element.css('margin-left'), 10) || 0;
-      const marginRight = parseInt(element.css('margin-right'), 10) || 0;
-      return element.outerWidth() + marginLeft + marginRight;
-    }
-
-    move(obj, position, limit) {
-      const findElemsSelector = this.getFindElemsSelector(this.alwaysVisibleIndex);
-
-      for (let x = position; x <= limit; x++) {
-        obj.find(`${findElemsSelector}[data-index="${x}"]`).appendTo(obj.find(".cut-list__more-content"));
+      destroyElements(elements) {
+        const removed = this.elements.filter(elements);
+        removed.each((index, element) => this.suspendedElements.add(element));
+        this.removeLists(removed);
+        this.resize.setElements(this.activeElements);
+        if (this.activeElements.length === 0) this.destroy();
       }
-
-      if (this.alwaysVisibleIndex != -1) {
-        this.handleRemainingAlwaysVisibleElement(obj);
+      removeLists(elements) {
+        this.lists = this.lists.filter((list) => {
+          if (!elements.is(list.element)) return true;
+          list.destroy();
+          return false;
+        });
+        this.initialized = this.lists.length > 0;
+        if (!this.initialized) $(document).off(this.namespace);
       }
-    }
-
-    handleRemainingAlwaysVisibleElement(obj) {
-      const areaWidth = obj.width();
-      const firstElement = obj.find(".cut-list__elem:first");
-      const isFirstElementAlwaysVisible = firstElement.is(this.options.alwaysVisibleElem);
-
-      if (isFirstElementAlwaysVisible) {
-        let listWidth = obj.find(".cut-list__dropdown").outerWidth(true) +
-                        this.getOuterWidthWithMargin(firstElement);
-
-        if (listWidth >= areaWidth) {
-          const alwaysVisibleIndex = firstElement.data("index");
-          obj.find(`.cut-list__elem:not(".cut-list__dropdown")[data-index="${alwaysVisibleIndex}"]`)
-             .appendTo(obj.find(".cut-list__more-content"));
-        }
+      redrawList() {
+        if (this.initialized) this.lists.forEach((list) => list.redraw());
       }
-    }
-
-    hideMore(moreBlock) {
-      $(moreBlock).hide().removeClass("is-top is-left")
-    }
-
-    showMore(moreBlock, obj) {
-      const windowHeight = $(window).height();
-      const documentHeight = $(document).height();
-      const scrollTop = $(window).scrollTop();
-      const moreBlockHeight = moreBlock.outerHeight();
-      const triggerBottom = obj.offset().top + obj.outerHeight();
-
-      moreBlock.css("visibility", "hidden").show();
-      this.options.onBeforeCalc(obj);
-
-      const spaceBelow = documentHeight - triggerBottom;
-      const spaceAbove = obj.offset().top - scrollTop;
-      const visibleSpaceBelow = windowHeight - (triggerBottom - scrollTop);
-
-      const fitsBelow = spaceBelow >= moreBlockHeight;
-      const fitsAbove = spaceAbove >= moreBlockHeight;
-      const visiblyFitsBelow = visibleSpaceBelow >= moreBlockHeight;
-
-      moreBlock.toggleClass("is-top", !visiblyFitsBelow && fitsAbove || !fitsBelow && fitsAbove);
-      moreBlock.toggleClass("is-left", moreBlock.offset().left < 0);
-
-      this.options.onBeforeOpen(obj);
-      moreBlock.css("visibility", "visible");
-      this.options.onOpen(obj);
-    }
+      closeOutsideDropdowns(target) {
+        this.lists.forEach((list) => {
+          if (!list.dropdown.contains(target)) list.dropdown.close();
+        });
+      }
+      releaseElements(elements) {
+        const removed = this.elements.filter(elements);
+        this.removeLists(removed);
+        removed.each((index, element) => this.suspendedElements.delete(element));
+        this.elements = this.elements.not(removed);
+        this.resize.setElements(this.activeElements);
+        if (this.activeElements.length === 0) this.destroy();
+      }
+      teardownLists() {
+        this.resize.unobserve();
+        $(document).off(this.namespace);
+        this.lists.forEach((list) => list.destroy());
+        this.lists = [];
+        this.initialized = false;
+      }
+      destroy() {
+        this.destroyed = true;
+        this.elements.each((index, element) => this.suspendedElements.add(element));
+        this.resize.stop();
+        this.teardownLists();
+      }
+    };
   }
-
-  $.fn.cutList = function(options) {
-    return this.each(function() {
-      if (!$.data(this, 'InsalesCutList')) {
-        $.data(this, 'InsalesCutList', new InsalesCutList(this, options));
-      }
+  // src/index.js
+  var $ = window.jQuery;
+  var InsalesCutList = createInsalesCutList($, window, document);
+  $.fn.cutList = function (options) {
+    return this.each(function () {
+      if (!$.data(this, 'InsalesCutList')) new InsalesCutList(this, options);
     });
   };
-
-  $.fn.cutList.setup = function(elements, options = {}) {
-    return $(elements).each(function() {
-      const instance = $.data(this, 'InsalesCutList');
-      if (instance) {
-        instance.init();
-      } else {
-        $.data(this, 'InsalesCutList', new InsalesCutList(this, options));
-      }
+  $.fn.cutList.setup = function (elements, options = {}) {
+    return $(elements).each(function () {
+      const instance = $.data(this, DATA_KEY);
+      if (instance) instance.setupElements(this);
+      else new InsalesCutList(this, options);
     });
   };
-
-  $.fn.cutList.destroy = function(elements) {
-    return $(elements).each(function() {
-      const instance = $.data(this, 'InsalesCutList');
-      if (instance) {
-        instance.destroy();
-      }
+  $.fn.cutList.destroy = function (elements) {
+    return $(elements).each(function () {
+      const instance = $.data(this, DATA_KEY);
+      if (instance) instance.destroyElements(this);
     });
   };
-
   window.InsalesCutList = InsalesCutList;
-})(jQuery, window, document);
+})();

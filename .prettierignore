@@ -1,0 +1,5 @@
+package-lock.json
+jquery.cut-list.min.js
+coverage/
+playwright-report/
+test-results/
